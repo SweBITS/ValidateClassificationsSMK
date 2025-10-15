@@ -134,8 +134,8 @@ try:
         logging.warning(f"Setting mean insert size: 300")
         logging.warning(f"Setting stdev of insert size to 20% of insert size: 60")
         logging.warning(f"Setting average read length: 150 bp")
-        extracted_params["used_mean_insert_size"] = 300
-        extracted_params["used_std_insert_size"] = 60
+        extracted_params["used_mean_insert_size"] = 150
+        extracted_params["used_std_insert_size"] = 30
         extracted_params["used_mean_read_length"] = 150
 
     logging.info(f"Will use params: Mean Insert={extracted_params['used_mean_insert_size']}, "

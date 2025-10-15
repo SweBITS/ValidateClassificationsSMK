@@ -91,6 +91,7 @@ rule bbmap_map_reads:
         mem = config.get("BBMAP_MAP_MEM", "8g"),
         minid = config["BBMAP_MINID"],
         pairedonly = 't',
+        killbadpairs = 't',
         ambig = 'toss',
         build_id = 1
     log:
@@ -116,6 +117,7 @@ rule bbmap_map_reads:
             "minid={params.minid} "
             "ambiguous={params.ambig} "
             "pairedonly={params.pairedonly} "
+            "killbadpairs={params.killbadpairs}"
             "-Xmx{params.mem} "
             "threads={threads} "
             "pigz=t unpigz=t "

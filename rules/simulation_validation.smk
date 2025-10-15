@@ -315,7 +315,7 @@ rule split_kraken_output:
 
         # Regex to extract wildcards from expected output paths
         # Assumes pattern ".../{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_simulated.kraken.out"
-        output_filename_regex = r".*/([a-zA-Z0-9_]+)_taxID-(\d+)_genome-([a-zA-Z0-9_.\-]+)_simulated\.kraken\.out$"
+        output_filename_regex = r".*/([a-zA-Z0-9_-]+)_taxID-(\d+)_genome-([a-zA-Z0-9_.\-]+)_simulated\.kraken\.out$"
     log:
         path = LOG_SPLIT_KRAKEN_PATTERN
     conda:
@@ -440,7 +440,7 @@ rule define_classifiable_regions:
     shell:
         # Use bedtools genomecov -bga, coverage filter with awk, merge resulting bed-regions
         "bedtools genomecov -bga -ibam {input.bam} "
-            "| awk -v threshold={params.threshold} '$4 >= threshold' "
+            "| awk -v threshold={params.threshold} '$NF >= threshold' "
             "| bedtools merge -i stdin "
             "> {output.covered_bed} "
             "2> {log.path}"
