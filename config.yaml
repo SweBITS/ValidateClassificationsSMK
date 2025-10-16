@@ -14,7 +14,7 @@ RUN_VALIDATION: True  # {true, false}
 
 # --- Input File Patterns & Specifications --- #
 # Change these as needed
-FASTQ_FILE_PATTERN: "fastq/taxID-{tax_id}_R{read_pair}.fq.gz"           # Pattern for input FASTQ files
+FASTQ_FILE_PATTERN: "fastq/taxid-{tax_id}_R{read_pair}.fq.gz"           # Pattern for input FASTQ files
 MAPPING_SPECIFICATION: "supporting_files/mapping_specification.tsv"    # File mapping tax IDs to genome files
 
 
@@ -35,14 +35,14 @@ COVERAGE: 10  # Coverage for pIRS simulation
 # Path to the Kraken 2 database used in the validation step, needs to contain 
 # a taxonomy directory with names.dmp and nodes.dmp
 # KRAKEN2_DB_PATH: "kraken_db/test_db"
-KRAKEN2_DB_PATH: "kraken_db/forest_troublemakers_241002"
+KRAKEN2_DB_PATH: "kraken_db/db"
 # Confidence threshold for Kraken 2 classification
-KRAKEN2_CONFIDENCE: 0.1
+KRAKEN2_CONFIDENCE: 0.03
 # Minimum number of minimizer hit groups required for classification
-KRAKEN2_MINIMUM_NUM_HIT_GROUPS: 10
+KRAKEN2_MINIMUM_NUM_HIT_GROUPS: 2
 # Optional: Path to directory containing kraken2.
 # If null or commented out, executable are assumed to be in PATH (via conda).
-#KRAKEN2_BIN_DIR: "/pfs/proj/nobackup/fs/projnb10/snic2019-35-73/bin/kraken2_SweBiTS/scripts"
+KRAKEN2_BIN_DIR: "/pfs/proj/nobackup/fs/projnb10/snic2019-35-73/bin/kraken2_SweBiTS_intel"
 
 
 ###################################
@@ -107,9 +107,9 @@ AGGREGATE_FASTQ_MEM_MB: 2000
 AGGREGATE_FASTQ_RUNTIME: "1h"
 
 # Kraken 2 Resources
-KRAKEN2_THREADS: 72
-KRAKEN2_MEM_MB: 1600000
-KRAKEN2_RUNTIME: "6h"
+KRAKEN2_THREADS: 16
+KRAKEN2_MEM_MB: 2900000
+KRAKEN2_RUNTIME: "168h"
 
 # Split Kraken Output Resources (Python script)
 SPLIT_KRAKEN_THREADS: 1
@@ -130,7 +130,7 @@ SEQTK_RUNTIME: "2h"
 # Rule: define_classifiable_regions
 # Dynamic
 DEF_CR_THREADS: 1
-DEF_CR_MEM_MB: 6000
+DEF_CR_MEM_MB: 16000
 DEF_CR_RUNTIME: "30m"
 
 # Sort Classifiable BED file Resources

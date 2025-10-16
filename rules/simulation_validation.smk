@@ -209,7 +209,7 @@ rule simulate_reads_pirs:
         runtime=config.get("PIRS_SIM_RUNTIME", "2h"),
         mem_mb=config.get("PIRS_SIM_MEM_MB", 4000),
         cpus_per_task=config.get("PIRS_SIM_THREADS", 4)
-    retries: 3
+    retries: 8
     benchmark: LOG_SIMULATE_READS_PATTERN.replace("log", "benchmark")
     script:
         "../scripts/run_pirs_simulate_reads.py"
@@ -286,6 +286,9 @@ rule classify_all_concatenated:
         cpus_per_task=config.get("KRAKEN2_THREADS", 32)
     benchmark: LOG_KRAKEN2_BATCH_PATTERN.replace("log", "benchmark")
     shell:
+        "export OMP_NUM_THREADS={threads} && "
+        "module purge && "
+        "module load intel/2025a && " 
         "{params.executable} "
             "--db {params.db_path} "
             "--threads {threads} "

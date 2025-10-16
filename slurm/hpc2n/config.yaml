@@ -5,11 +5,11 @@ cluster:
 
 # -- Concurrency --
 # Maximum number of jobs submitted to SLURM at once
-jobs: 200
+jobs: 500
 
 # -- Default Resources (Applied to all rules unless overridden) --
 default-resources:
-  slurm_account: "hpc2n2025-006"
+  slurm_account: "hpc2n2025-210"
   slurm_partition: "batch"
   runtime: "1h"
   mem_mb: 4000
