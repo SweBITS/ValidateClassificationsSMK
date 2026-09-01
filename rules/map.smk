@@ -117,7 +117,7 @@ rule bbmap_map_reads:
             "minid={params.minid} "
             "ambiguous={params.ambig} "
             "pairedonly={params.pairedonly} "
-            "killbadpairs={params.killbadpairs}"
+            "killbadpairs={params.killbadpairs} "
             "-Xmx{params.mem} "
             "threads={threads} "
             "pigz=t unpigz=t "
