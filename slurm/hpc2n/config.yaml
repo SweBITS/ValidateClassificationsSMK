@@ -9,7 +9,7 @@ jobs: 200
 
 # -- Default Resources (Applied to all rules unless overridden) --
 default-resources:
-  slurm_account: "hpc2n2025-006"
+  slurm_account: "hpc2n2026-053"
   slurm_partition: "batch"
   runtime: "1h"
   mem_mb: 4000
