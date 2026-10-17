@@ -3,4 +3,5 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - pirs>=2.0.2
+  - seqkit>=2.5.0
+  - pigz

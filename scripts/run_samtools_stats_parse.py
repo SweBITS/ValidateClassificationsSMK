@@ -131,8 +131,8 @@ try:
         logging.warning(f"mean_insert_size: {insert_size}")
         logging.warning(f"std_dev_insert_size: {insert_size_std}")
         logging.warning(f"Setting simulation parameters to reasonable defaults.")
-        logging.warning(f"Setting mean insert size: 300")
-        logging.warning(f"Setting stdev of insert size to 20% of insert size: 60")
+        logging.warning(f"Setting mean insert size: 150")
+        logging.warning(f"Setting stdev of insert size to 20% of insert size: 30")
         logging.warning(f"Setting average read length: 150 bp")
         extracted_params["used_mean_insert_size"] = 150
         extracted_params["used_std_insert_size"] = 30

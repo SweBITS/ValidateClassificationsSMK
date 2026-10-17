@@ -8,19 +8,14 @@ import json
 
 # --- output patterns --- #
 VALIDATION_OUT_DIR = OUTPUT_DIR / "validation"
-CHK_AGGREGATE_COVERAGE_OUT = str(VALIDATION_OUT_DIR / "aggregated_coverage.tsv")
-SAMTOOLS_STATS_OUT_PATTERN = str(VALIDATION_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_samtools_stats.txt")
-SIM_PARAMS_OUT_PATTERN = str(VALIDATION_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_simulation_params.json")
-SIM_READS_PATTERN = str(VALIDATION_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_simulated_{read_pair}.fq.gz")  # Must end in "_{read_pair}.fq.gz"
-CLEANED_SIM_READS_PATTERN = str(VALIDATION_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_simulated_headerfixed_R{read_pair}.fq.gz")
-AGG_SIM_PATTERN = str(VALIDATION_OUT_DIR / "aggregated_simulated_R{read_pair}.fq.gz")
+SLICED_SIM_READS_PATTERN = str(VALIDATION_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_sliced_reads.fa.gz")
+AGG_SIM_PATTERN = str(VALIDATION_OUT_DIR / "aggregated_simulated.fa.gz")
 ALL_KRAKEN_OUT_PATTERN = str(VALIDATION_OUT_DIR / "aggregated_simulated.kraken.out")
 ALL_KRAKEN_REPORT_PATTERN = str(VALIDATION_OUT_DIR / "aggregated_simulated.kraken.report")
 KRAKEN_OUT_SIM_PATTERN = str(VALIDATION_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_simulated.kraken.out")           # NB: Changing this will affect the split_kraken_output rule
 KRAKEN_REPORT_SIM_PATTERN = str(VALIDATION_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_simulated.kraken.report")     # NB: Changing this will affect the split_kraken_output rule
 CORRECT_READ_IDS_PATTERN = str(VALIDATION_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_simulated_correctly_classified_read_ids.txt")
-FILTERED_SIM_READS_PATTERN = str(VALIDATION_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_simulated_correctly_classified_R{read_pair}.fq.gz")
-MAPPED_SIM_BAM_PATTERN = str(VALIDATION_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_mapped_simulated_correctly_classified.bam")
+FILTERED_SIM_READS_PATTERN = str(VALIDATION_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_simulated_correctly_classified.fa.gz")
 MAPPED_SIM_STATS_PATTERN = str(VALIDATION_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_mapped_simulated_correctly_classified_stats.txt")
 SORTED_MAPPED_SIM_BAM_PATTERN = str(VALIDATION_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_mapped_simulated_correctly_classified.sorted.bam")
 CLASSIFIABLE_REGIONS_BED_PATTERN = str(VALIDATION_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_classifiable_regions.bed")
@@ -31,16 +26,12 @@ VALIDATION_BRANCH_REPORT_PATTERN = str(VALIDATION_OUT_DIR / "joint_validation_re
 
 # --- log patterns --- #
 VALIDATION_LOG_DIR = LOG_DIR / "validation"
-LOG_CHK_AGGREGATE_COVERAGE = str(VALIDATION_LOG_DIR / "aggregate_coverage.log")
-LOG_ESTIMATE_PARAMS_PATTERN = str(VALIDATION_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_estimate_simulation_params.log")
-LOG_SIMULATE_READS_PATTERN = str(VALIDATION_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_simulate_reads_pirs.log")
-LOG_REWRITE_HEADERS_PATTERN = str(VALIDATION_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_R{read_pair}__rewrite_fastq_headers.log")
+LOG_SLICE_READS_PATTERN = str(VALIDATION_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_slice_reference_genome.log")
 LOG_KRAKEN2_BATCH_PATTERN = str(VALIDATION_LOG_DIR / "classify_all_simulated.log")
 LOG_SPLIT_KRAKEN_PATTERN = str(VALIDATION_LOG_DIR / "split_kraken_output.log")
 LOG_EXTRACT_IDS_PATTERN = str(VALIDATION_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_extract_correct_read_ids.log")
-LOG_FILTER_FASTQ_PATTERN = str(VALIDATION_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_R{read_pair}__filter_fastq_with_seqtk.log")
-LOG_MAP_SIM_PATTERN = str(VALIDATION_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_map_correct_simulated.log")
-LOG_SORT_SIM_PATTERN = str(VALIDATION_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_sort_mapped_simulated.log")
+LOG_FILTER_FASTQ_PATTERN = str(VALIDATION_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_filter_fastq_with_seqtk.log")
+LOG_MAP_SIM_PATTERN = str(VALIDATION_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_minimap2_map_simulated.log")
 LOG_DEF_CR_PATTERN = str(VALIDATION_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_define_classifiable_regions.log")
 LOG_INTERSECT_READS_PATTERN = str(VALIDATION_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_intersect_real_reads_with_classifiable_regions.log")
 LOG_SUMMARIZE_VALIDATION_PATTERN = str(VALIDATION_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_summarize_validation_coverage.log")
@@ -57,60 +48,17 @@ ALL_TAX_IDS = MAPPING_SPEC_DF['tax_id'].tolist()
 ALL_SANITIZED_NAMES = MAPPING_SPEC_DF['sanitized_name'].tolist()
 ALL_GENOME_BASENAMES = MAPPING_SPEC_DF['genome_basename'].tolist()
 
-def get_simulation_validation_targets(wildcards, pattern_template, **fixed_wildcards):
+# --- Target Expansion Helper Functions --- #
+def get_sliced_simulated_reads(wildcards):
     """
-    Input function generalized for simulation_validation.smk. Waits for aggregate_coverage_results
-    checkpoint, reads the list of passing samples, and expands the final target patterns only for those samples.
-    Allows fixing specific wildcards (like read_pair).
+    Returns the list of sliced FASTA files for all target species.
     """
-    final_validation_targets = []
-    
-    # Step 1: Wait for the coverage aggregation checkpoint to finish
-    passed_samples_tsv = checkpoints.aggregate_coverage_results.get().output[0]
-
-    # Step 2: Read the TSV file into a pandas DataFrame
-    passed_df = pd.read_csv(passed_samples_tsv, sep='\t', dtype=str)
-    
-    # Step 3: Generate final targets using expand() only for passing samples
-    if not passed_df.empty:
-        
-        # Extract lists needed for expand's zip mode
-        tax_id_list = passed_df["TaxID"].tolist()
-        sanitized_name_list = passed_df["SanitizedName"].tolist()
-        genome_basename_list = passed_df["GenomeBasename"].tolist()
-
-        # Prepare expansion keyword arguments
-        expand_kwargs = {
-            'tax_id': tax_id_list,
-            'sanitized_name': sanitized_name_list,
-            'genome_basename': genome_basename_list}
-
-        # Add any fixed wildcards provided
-        for wc_name, wc_value in fixed_wildcards.items():
-            # Ensure the value is a list of the same length for zip mode
-            expand_kwargs[wc_name] = [wc_value] * len(tax_id_list)
-        
-        # Generate targets using expand() with zip
-        target_files = expand(pattern_template, zip, **expand_kwargs)
-        final_validation_targets.extend(target_files)
-
-    else:
-        logger.warning(f"Passed samples file '{passed_samples_tsv}' is empty. No validation targets generated.")
-
-    # Return the list of validation targets (may be empty)
-    return final_validation_targets
-
-# --- Input function for the aggregate_simulated_fastqs rule --- #
-def get_rewritten_simulated_fastqs(wildcards):
-    """
-    Returns the list of R1 or R2 rewritten FASTQ files based on the
-    wildcards.read_pair value ('1' or '2').
-    """
-    # Call the core helper function directly, passing:
-    return get_simulation_validation_targets(
-        wildcards,
-        CLEANED_SIM_READS_PATTERN,
-        read_pair=wildcards.read_pair)
+    return expand(
+        SLICED_SIM_READS_PATTERN,
+        zip,
+        tax_id=ALL_TAX_IDS,
+        sanitized_name=ALL_SANITIZED_NAMES,
+        genome_basename=ALL_GENOME_BASENAMES)
 
 def get_all_kraken_outs(wildcards):
     """Gets list of all expected per-sample kraken output files."""
@@ -118,23 +66,19 @@ def get_all_kraken_outs(wildcards):
 
 def get_all_html_files(wildcards):
     """Gets list of all per-sample HTML files."""
-    return get_simulation_validation_targets(
-        wildcards,
-        PLOT_SCATTER_HTML_PATTERN)
+    return expand(
+        PLOT_SCATTER_HTML_PATTERN,
+        zip,
+        tax_id=ALL_TAX_IDS,
+        sanitized_name=ALL_SANITIZED_NAMES,
+        genome_basename=ALL_GENOME_BASENAMES)
 
 
 # =============== #
 # --- OUTPUTS --- #
 # =============== #
 
-# TODO: The split kraken output rule should only split into the files that correspond 
-# to the passed tax_id/genome_basename combinations. Currently attempts to split all
-# starting combinations, but it apparently doen't cause a crash - just some empty output folders.
-
 # --- Generate the list of expected Kraken output files (after splitting them) ---
-# This is needed because we can't use a function in the output section of the rule
-# But since we know what the output files will be called, we can generate a list of them
-# here and use it in the rule.
 ALL_EXPECTED_KRAKEN_OUTS = get_all_kraken_outs(None)
 if not ALL_EXPECTED_KRAKEN_OUTS:
     logger.warning("No expected Kraken output files generated based on mapping spec. Check patterns/spec file.")
@@ -145,126 +89,54 @@ if not ALL_EXPECTED_KRAKEN_OUTS:
 # ============= #
 
 localrules:
-    aggregate_coverage_results,
     WF_collect_validation_branch
 
-# --- Checkpoint: Aggregate Coverage Results and Filter Samples --- #
-checkpoint aggregate_coverage_results:
+
+# --- Slice Reference Genome into overlapping pseudo-reads using seqkit sliding --- #
+rule slice_reference_genome:
     input:
-        # Use helper function to get list of all per-sample coverage files
-        coverage_files = get_all_coverage_files
+        fasta = get_fasta_path
     output:
-        # Single TSV listing samples that passed the threshold
-        passed_samples_tsv = CHK_AGGREGATE_COVERAGE_OUT
+        reads = SLICED_SIM_READS_PATTERN
     params:
-        cov_threshold = config.get("MIN_MEAN_DEPTH_COVERAGE_FOR_VALIDATION", 0.1)
+        window = config.get("SLICE_WINDOW", 300),
+        step = config.get("SLICE_STEP", 50)
     log:
-        path = LOG_CHK_AGGREGATE_COVERAGE
-    conda:
-        ".." / ENVS_DIR / "analysis.yaml"
-    benchmark: LOG_CHK_AGGREGATE_COVERAGE.replace("log", "benchmark")
-    script:
-        "../scripts/aggregate_and_filter_coverage.py"
-
-# --- Estimate Simulation Parameters using samtools stats --- #
-rule estimate_simulation_params:
-    input:
-        # The deduplicated BAM file from the mapping step
-        bam = DEDUP_BAM_OUT_PATTERN
-    output:
-        # Raw output from samtools stats and JSON file with simulation parameters
-        stats_raw = SAMTOOLS_STATS_OUT_PATTERN,
-        params_json = SIM_PARAMS_OUT_PATTERN
-    log:
-        path = LOG_ESTIMATE_PARAMS_PATTERN
-    conda:
-        ".." / ENVS_DIR / "map.yaml"
-    threads: config.get("SAMTOOLS_STATS_THREADS", 1)
-    resources:
-        mem_mb=config.get("SAMTOOLS_STATS_MEM_MB", 1000),
-        runtime=config.get("SAMTOOLS_STATS_RUNTIME", "15m"),
-        cpus_per_task=config.get("SAMTOOLS_STATS_THREADS", 1)
-    benchmark: LOG_ESTIMATE_PARAMS_PATTERN.replace("log", "benchmark")
-    script:
-        "../scripts/run_samtools_stats_parse.py"
-
-# --- Simulate error-free reads from genome using pIRS --- #
-rule simulate_reads_pirs:
-    input:
-        # Input is the reference genome and the simulation params
-        ref_fasta = get_fasta_path,
-        params_json = SIM_PARAMS_OUT_PATTERN
-    output:
-        # Output simulated R1 and R2 reads
-        r1 = SIM_READS_PATTERN.format(
-            sanitized_name="{sanitized_name}", tax_id="{tax_id}", genome_basename="{genome_basename}", read_pair="1"),
-        r2 = SIM_READS_PATTERN.format(
-            sanitized_name="{sanitized_name}", tax_id="{tax_id}", genome_basename="{genome_basename}", read_pair="2")
-    log:
-        path = LOG_SIMULATE_READS_PATTERN
+        path = LOG_SLICE_READS_PATTERN
     conda:
         ".." / ENVS_DIR / "simulate_reads.yaml"
-    threads: config.get("PIRS_SIM_THREADS", 4)
+    threads: config.get("SLICE_THREADS", 4)
     resources:
-        runtime=config.get("PIRS_SIM_RUNTIME", "2h"),
-        mem_mb=config.get("PIRS_SIM_MEM_MB", 4000),
-        cpus_per_task=config.get("PIRS_SIM_THREADS", 4)
-    retries: 3
-    benchmark: LOG_SIMULATE_READS_PATTERN.replace("log", "benchmark")
-    script:
-        "../scripts/run_pirs_simulate_reads.py"
-
-# --- Rewrite FASTQ Headers to Embed Source Info (using awk) --- #
-rule rewrite_fastq_headers:
-    input:
-        # Input are the raw simulated reads from pIRS
-        raw_fq = SIM_READS_PATTERN
-    output:
-        # Output are cleaned FASTQ files with tax_id and genome_basename embedded in the headers
-        cleaned_fq = CLEANED_SIM_READS_PATTERN
-    log:
-        path = LOG_REWRITE_HEADERS_PATTERN
-    params:
-        pigz_threads = 2
-    conda:
-        ".." / ENVS_DIR / "extract_reads.yaml"
-    threads: config.get("REWRITE_HEADERS_THREADS", 5)
-    resources:
-        runtime=config.get("REWRITE_HEADERS_RUNTIME", "2h"),
-        mem_mb=config.get("REWRITE_HEADERS_MEM_MB", 2000),
-        cpus_per_task=config.get("REWRITE_HEADERS_THREADS", 5)
+        runtime = config.get("SLICE_RUNTIME", "30m"),
+        mem_mb = config.get("SLICE_MEM_MB", 4000),
+        cpus_per_task = config.get("SLICE_THREADS", 4)
+    benchmark: LOG_SLICE_READS_PATTERN.replace("log", "benchmark")
     shell:
         r"""
-        AWK_CMD='NR % 4 == 1 {{ sub(/\/[12]$/, ""); print $0 "_taxid=" tid "_genome=" gbase; next }} {{ print }}' && \
-        pigz -p {params.pigz_threads} -dc {input.raw_fq} \
-            | awk -v tid={wildcards.tax_id} -v gbase={wildcards.genome_basename} "$AWK_CMD" \
-            | pigz -p {params.pigz_threads} -c > {output.cleaned_fq} 2> {log.path}
+        (seqkit sliding -W {params.window} -s {params.step} -g -j {threads} {input.fasta} \
+            | awk -v tid={wildcards.tax_id} -v gbase={wildcards.genome_basename} '/^>/ {{print $0 "_taxid=" tid "_genome=" gbase; next}} {{print}}' \
+            | pigz -p {threads} -c > {output.reads}) 2> {log.path}
         """
 
-# --- Aggregate Rewritten Simulated FASTQs --- #
+# --- Aggregate Sliced Simulated FASTAs --- #
 rule aggregate_simulated_fastqs:
     input:
-        # The rewritten simulated FASTQ files
-        fq_files = get_rewritten_simulated_fastqs
+        fq_files = get_sliced_simulated_reads
     output:
-        # Output is a single aggreated FASTQ file
         agg_fq = AGG_SIM_PATTERN
     threads: config.get("AGGREGATE_FASTQ_THREADS", 2)
     resources:
-        runtime=config.get("AGGREGATE_FASTQ_RUNTIME", "1h"),
-        mem_mb=config.get("AGGREGATE_FASTQ_MEM_MB", 2000),
-        cpus_per_task=config.get("AGGREGATE_FASTQ_THREADS", 2)
+        runtime = config.get("AGGREGATE_FASTQ_RUNTIME", "1h"),
+        mem_mb = config.get("AGGREGATE_FASTQ_MEM_MB", 2000),
+        cpus_per_task = config.get("AGGREGATE_FASTQ_THREADS", 2)
     shell:
         "cat {input.fq_files} > {output.agg_fq}"
 
 # --- Classify ALL Concatenated Simulated Reads --- #
 rule classify_all_concatenated:
     input:
-        # Input are the two aggregated FASTQ files
-        r1 = AGG_SIM_PATTERN.format(read_pair="1"),
-        r2 = AGG_SIM_PATTERN.format(read_pair="2")
+        reads = AGG_SIM_PATTERN
     output:
-        # Outputs are aggregated kraken output and report files
         kraken_out = ALL_KRAKEN_OUT_PATTERN,
         report = ALL_KRAKEN_REPORT_PATTERN
     params:
@@ -281,21 +153,20 @@ rule classify_all_concatenated:
         ".." / ENVS_DIR / "classify.yaml" if not config.get("KRAKEN2_BIN_DIR") else None
     threads: config.get("KRAKEN2_THREADS", 32)
     resources:
-        runtime=config.get("KRAKEN2_RUNTIME", "6h"),
-        mem_mb=config.get("KRAKEN2_MEM_MB", 500000),
-        cpus_per_task=config.get("KRAKEN2_THREADS", 32)
+        runtime = config.get("KRAKEN2_RUNTIME", "6h"),
+        mem_mb = config.get("KRAKEN2_MEM_MB", 500000),
+        cpus_per_task = config.get("KRAKEN2_THREADS", 32)
     benchmark: LOG_KRAKEN2_BATCH_PATTERN.replace("log", "benchmark")
     shell:
         "{params.executable} "
             "--db {params.db_path} "
             "--threads {threads} "
-            "--paired "
             "--output {output.kraken_out} "
             "--report {output.report} "
             "--gzip-compressed "
             "--confidence {params.confidence} "
             "--minimum-hit-groups {params.mhg} "
-            "{input.r1} {input.r2} "
+            "{input.reads} "
             "2> {log.path}"
 
 # --- Split Combined Kraken Output by Sample --- #
@@ -322,9 +193,9 @@ rule split_kraken_output:
         ".." / ENVS_DIR / "analysis.yaml"
     threads: config.get("SPLIT_KRAKEN_THREADS", 1)
     resources:
-        runtime=config.get("SPLIT_KRAKEN_RUNTIME", "60m"),
-        mem_mb=config.get("SPLIT_KRAKEN_MEM_MB", 2000),
-        cpus_per_task=config.get("SPLIT_KRAKEN_THREADS", 1)
+        runtime = config.get("SPLIT_KRAKEN_RUNTIME", "60m"),
+        mem_mb = config.get("SPLIT_KRAKEN_MEM_MB", 2000),
+        cpus_per_task = config.get("SPLIT_KRAKEN_THREADS", 1)
     benchmark: LOG_SPLIT_KRAKEN_PATTERN.replace("log", "benchmark")
     script:
         "../scripts/split_kraken.py"
@@ -348,9 +219,9 @@ rule extract_correct_read_ids:
         ".." / ENVS_DIR / "extract_reads.yaml"
     threads: config.get("EXTRACT_IDS_THREADS", 1)
     resources:
-        runtime=config.get("EXTRACT_IDS_RUNTIME", "60m"),
-        mem_mb=config.get("EXTRACT_IDS_MEM_MB", 2000),
-        cpus_per_task=config.get("EXTRACT_IDS_THREADS", 1)
+        runtime = config.get("EXTRACT_IDS_RUNTIME", "60m"),
+        mem_mb = config.get("EXTRACT_IDS_MEM_MB", 2000),
+        cpus_per_task = config.get("EXTRACT_IDS_THREADS", 1)
     benchmark: LOG_EXTRACT_IDS_PATTERN.replace("log", "benchmark")
     shell:
         "python {params.selmeout_path} "
@@ -365,57 +236,49 @@ rule extract_correct_read_ids:
 # --- Filter correctly classified simulated reads from FASTQ files using seqtk --- #
 rule filter_fastq_with_seqtk:
     input:
-        # The rewritten simulated FASTQ files and the read IDs to extract
-        fastq = CLEANED_SIM_READS_PATTERN,
+        reads = SLICED_SIM_READS_PATTERN,
         read_ids = CORRECT_READ_IDS_PATTERN
     output:
-        # Final filtered FASTQ files (contains simulated reads that were correctly classified)
-        fastq = FILTERED_SIM_READS_PATTERN
+        reads = FILTERED_SIM_READS_PATTERN
     log:
         path = LOG_FILTER_FASTQ_PATTERN
     conda:
         ".." / ENVS_DIR / "extract_reads.yaml"
     threads: config.get("SEQTK_THREADS", 1)
     resources:
-        runtime=config.get("SEQTK_RUNTIME", "60m"),
-        mem_mb=config.get("SEQTK_MEM_MB", 2000),
-        cpus_per_task=config.get("SEQTK_THREADS", 1)
+        runtime = config.get("SEQTK_RUNTIME", "60m"),
+        mem_mb = config.get("SEQTK_MEM_MB", 8000),
+        cpus_per_task = config.get("SEQTK_THREADS", 1)
     benchmark: LOG_FILTER_FASTQ_PATTERN.replace("log", "benchmark")
     shell:
-        "seqtk subseq {input.fastq} <(cut -f 3 {input.read_ids}) | pigz -c > {output.fastq} "
-        "2> {log.path}"
+        "seqtk subseq {input.reads} <(cut -f 3 {input.read_ids}) | pigz -c > {output.reads} 2> {log.path}"
 
-# --- Map Correctly Classified Simulated Reads using BBMap --- #
-# Run BBmap with the same settings as in the map.smk rule, but with different input/output patterns
-# and treating ambiguous reads differently - randomly assign them to one of the best positions
-use rule bbmap_map_reads as map_correct_simulated with:
+# --- Map Correctly Classified Simulated Reads using Minimap2 --- #
+rule map_correct_simulated:
     input:
-        # Use the filtered FASTQ files from seqtk step
-        idx_dir = BBMAP_INDEX_DIR_PATTERN,
-        r1 = FILTERED_SIM_READS_PATTERN.format(
-            sanitized_name="{sanitized_name}", tax_id="{tax_id}", genome_basename="{genome_basename}", read_pair="1"),
-        r2 = FILTERED_SIM_READS_PATTERN.format(
-            sanitized_name="{sanitized_name}", tax_id="{tax_id}", genome_basename="{genome_basename}", read_pair="2")
+        idx = MINIMAP2_INDEX_PATTERN,
+        reads = FILTERED_SIM_READS_PATTERN
     output:
-        # Output BAM and mapping stats
-        bam = MAPPED_SIM_BAM_PATTERN,
+        bam = SORTED_MAPPED_SIM_BAM_PATTERN,
         stats = MAPPED_SIM_STATS_PATTERN
-    params:
-        ambig = 'random'
     log:
         path = LOG_MAP_SIM_PATTERN
+    conda:
+        ".." / ENVS_DIR / "map.yaml"
+    threads: config.get("MINIMAP2_MAP_SIM_THREADS", 8)
+    resources:
+        mem_mb = config.get("MINIMAP2_MAP_SIM_MEM_MB", 16000),
+        runtime = config.get("MINIMAP2_MAP_SIM_RUNTIME", "1h"),
+        cpus_per_task = config.get("MINIMAP2_MAP_SIM_THREADS", 8)
     benchmark: LOG_MAP_SIM_PATTERN.replace("log", "benchmark")
+    shell:
+        r"""
+        (minimap2 -ax sr -t {threads} {input.idx} {input.reads} \
+            | samtools view -F 0x900 -b - \
+            | samtools sort -@ {threads} -o {output.bam} -) 2> {log.path}
+        samtools flagstat {output.bam} > {output.stats} 2>> {log.path}
+        """
 
-# --- Sort Mapped Simulated Reads BAM file by coordinate --- #
-# Reuse the sambamba sort rule from map.smk, but with different input/output patterns
-use rule sambamba_sort as sort_mapped_simulated with:
-    input:
-        bam = MAPPED_SIM_BAM_PATTERN
-    output:
-        bam = SORTED_MAPPED_SIM_BAM_PATTERN
-    log:
-        path = LOG_SORT_SIM_PATTERN
-    benchmark: LOG_SORT_SIM_PATTERN.replace("log", "benchmark")
 
 # --- Get Classifiable Regions--- #
 rule define_classifiable_regions:
@@ -526,8 +389,7 @@ rule validation_branch_report:
         markdup_logs = expand(LOG_MARKDUP_PATTERN, zip, sanitized_name=ALL_SANITIZED_NAMES, tax_id=ALL_TAX_IDS, genome_basename=ALL_GENOME_BASENAMES),
         dedup_bams = expand(DEDUP_BAM_OUT_PATTERN, zip, sanitized_name=ALL_SANITIZED_NAMES, tax_id=ALL_TAX_IDS, genome_basename=ALL_GENOME_BASENAMES),
         coverage_files = expand(COVERAGE_OUTPUT_PATTERN, zip, sanitized_name=ALL_SANITIZED_NAMES, tax_id=ALL_TAX_IDS, genome_basename=ALL_GENOME_BASENAMES),
-        sim_params_jsons = expand(SIM_PARAMS_OUT_PATTERN, zip, sanitized_name=ALL_SANITIZED_NAMES, tax_id=ALL_TAX_IDS, genome_basename=ALL_GENOME_BASENAMES),
-        pirs_logs = expand(LOG_SIMULATE_READS_PATTERN, zip, sanitized_name=ALL_SANITIZED_NAMES, tax_id=ALL_TAX_IDS, genome_basename=ALL_GENOME_BASENAMES),
+        slice_logs = expand(LOG_SLICE_READS_PATTERN, zip, sanitized_name=ALL_SANITIZED_NAMES, tax_id=ALL_TAX_IDS, genome_basename=ALL_GENOME_BASENAMES),
         correct_ids_logs = expand(LOG_EXTRACT_IDS_PATTERN, zip, sanitized_name=ALL_SANITIZED_NAMES, tax_id=ALL_TAX_IDS, genome_basename=ALL_GENOME_BASENAMES),
         sim_stats = expand(MAPPED_SIM_STATS_PATTERN, zip, sanitized_name=ALL_SANITIZED_NAMES, tax_id=ALL_TAX_IDS, genome_basename=ALL_GENOME_BASENAMES),
         classifiable_beds = expand(CLASSIFIABLE_REGIONS_BED_PATTERN, zip, sanitized_name=ALL_SANITIZED_NAMES, tax_id=ALL_TAX_IDS, genome_basename=ALL_GENOME_BASENAMES),
@@ -545,8 +407,8 @@ rule validation_branch_report:
              "kraken_conf": config.get("KRAKEN2_CONFIDENCE"),
              "kraken_mhg": config.get("KRAKEN2_MINIMUM_NUM_HIT_GROUPS"),
              "cov_cutoff": config.get("MIN_MEAN_DEPTH_COVERAGE_FOR_VALIDATION"),
-             "sim_cov_target": config.get("COVERAGE"),
-             "bbmap_minid": config.get("BBMAP_MINID"),
+             "slice_window": config.get("SLICE_WINDOW", 300),
+             "slice_step": config.get("SLICE_STEP", 50),
              "fastq_pattern": config.get("FASTQ_FILE_PATTERN"),
              "mapping_spec_path": str(MAPPING_SPEC)},
         # Patterns are used to find the input files that are related to each
@@ -556,8 +418,7 @@ rule validation_branch_report:
              "markdup_logs": LOG_MARKDUP_PATTERN,
              "dedup_bams": DEDUP_BAM_OUT_PATTERN,
              "coverage_files": COVERAGE_OUTPUT_PATTERN,
-             "sim_params_jsons": SIM_PARAMS_OUT_PATTERN,
-             "pirs_logs": LOG_SIMULATE_READS_PATTERN,
+             "slice_logs": LOG_SLICE_READS_PATTERN,
              "correct_ids_logs": LOG_EXTRACT_IDS_PATTERN,
              "sim_stats": MAPPED_SIM_STATS_PATTERN,
              "classifiable_beds": CLASSIFIABLE_REGIONS_BED_PATTERN,

@@ -7,8 +7,8 @@ from pathlib import Path
 
 # --- output patterns --- #
 MAPPING_OUT_DIR = OUTPUT_DIR / "mapping"
-BBMAP_INDEX_DIR = OUTPUT_DIR / "bbmap_indices"
-BBMAP_INDEX_DIR_PATTERN = str(BBMAP_INDEX_DIR / "{genome_basename}")
+MINIMAP2_INDEX_DIR = OUTPUT_DIR / "minimap2_indices"
+MINIMAP2_INDEX_PATTERN = str(MINIMAP2_INDEX_DIR / "{genome_basename}.mmi")
 RAW_BAM_OUT_PATTERN = str(MAPPING_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_mapping.bam")
 SORTED_BAM_OUT_PATTERN = str(MAPPING_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_mapping.sorted.bam")
 DEDUP_BAM_OUT_PATTERN = str(MAPPING_OUT_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_mapping_dedup.bam")
@@ -18,8 +18,8 @@ COVERAGE_OUTPUT_PATTERN = str(MAPPING_OUT_DIR / "{sanitized_name}/{sanitized_nam
 
 # --- log patterns --- #
 MAPPING_LOG_DIR = LOG_DIR / "mapping"
-LOG_BBMAP_INDEX_PATTERN = str(MAPPING_LOG_DIR / "{genome_basename}__bbmap_index.log")
-LOG_MAP_PATTERN = str(MAPPING_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_bbmap_map.log")
+LOG_MINIMAP2_INDEX_PATTERN = str(MAPPING_LOG_DIR / "{genome_basename}__minimap2_index.log")
+LOG_MAP_PATTERN = str(MAPPING_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_minimap2_map.log")
 LOG_SORT_PATTERN = str(MAPPING_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_sambamba_sort.log")
 LOG_MARKDUP_PATTERN = str(MAPPING_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_sambamba_markdup.log")
 LOG_CALC_COV_PATTERN = str(MAPPING_LOG_DIR / "{sanitized_name}/{sanitized_name}_taxID-{tax_id}_genome-{genome_basename}_coverage.log")
@@ -47,83 +47,51 @@ def get_all_coverage_files(wildcards):
 localrules:
     WF_collect_mapping_branch
 
-# --- Index Reference Genome using BBMap --- #
-rule bbmap_index:
+# --- Index Reference Genome using Minimap2 --- #
+rule minimap2_index:
     input:
         fasta = get_fasta_path
     output:
-        idx_dir = directory(BBMAP_INDEX_DIR_PATTERN)
-    params:
-        build_id = 1,
-        mem = config.get("BBMAP_INDEX_MEM", "20g")
+        idx = MINIMAP2_INDEX_PATTERN
     log:
-        path = LOG_BBMAP_INDEX_PATTERN
+        path = LOG_MINIMAP2_INDEX_PATTERN
     conda:
         ".." / ENVS_DIR / "map.yaml"
-    threads: config.get("BBMAP_INDEX_THREADS", 4)
+    threads: config.get("MINIMAP2_INDEX_THREADS", 4)
     resources:
-        mem_mb=config.get("BBMAP_INDEX_MEM_MB", 22000),
-        runtime=config.get("BBMAP_INDEX_RUNTIME", "1h"),
-        cpus_per_task=config.get("BBMAP_INDEX_THREADS", 4)
-    benchmark: LOG_BBMAP_INDEX_PATTERN.replace("log", "benchmark")
+        mem_mb=config.get("MINIMAP2_INDEX_MEM_MB", 8000),
+        runtime=config.get("MINIMAP2_INDEX_RUNTIME", "30m"),
+        cpus_per_task=config.get("MINIMAP2_INDEX_THREADS", 4)
+    benchmark: LOG_MINIMAP2_INDEX_PATTERN.replace("log", "benchmark")
     shell:
-        "bbmap.sh "
-            "ref={input.fasta} "
-            "path={output.idx_dir} "
-            "build={params.build_id} "
-            "-Xmx{params.mem} "
-            "threads={threads} "
-            "pigz=t unpigz=t "
-            "overwrite=t "
-            f"{BBMAP_JNI_FLAG} "  # Adds 'usejni=t' or 'usejni=f'
-            "> {log.path} 2>&1"
+        "minimap2 -t {threads} -d {output.idx} {input.fasta} > {log.path} 2>&1"
 
-# --- Map Reads to Reference using BBMap --- #
-rule bbmap_map_reads:
+# --- Map Reads to Reference using Minimap2 --- #
+rule minimap2_map_reads:
     input:
-        idx_dir = BBMAP_INDEX_DIR_PATTERN,
+        idx = MINIMAP2_INDEX_PATTERN,
         r1 = STARTING_FASTQ_PATTERN.format(tax_id="{tax_id}", read_pair="1"),
         r2 = STARTING_FASTQ_PATTERN.format(tax_id="{tax_id}", read_pair="2")
     output:
         bam = RAW_BAM_OUT_PATTERN,
         stats = STATS_OUT_PATTERN
-    params:
-        mem = config.get("BBMAP_MAP_MEM", "8g"),
-        minid = config["BBMAP_MINID"],
-        pairedonly = 't',
-        killbadpairs = 't',
-        ambig = 'toss',
-        build_id = 1
     log:
         path = LOG_MAP_PATTERN
     conda:
         ".." / ENVS_DIR / "map.yaml"
-    threads: config.get("BBMAP_MAP_THREADS", 4)
+    threads: config.get("MINIMAP2_MAP_THREADS", 8)
     resources:
-        mem_mb=config.get("BBMAP_MAP_MEM_MB", 10000),
-        runtime=config.get("BBMAP_MAP_RUNTIME", "1h"),
-        cpus_per_task=config.get("BBMAP_MAP_THREADS", 4)
+        mem_mb=config.get("MINIMAP2_MAP_MEM_MB", 16000),
+        runtime=config.get("MINIMAP2_MAP_RUNTIME", "2h"),
+        cpus_per_task=config.get("MINIMAP2_MAP_THREADS", 8)
     retries: 3
     benchmark: LOG_MAP_PATTERN.replace("log", "benchmark")
     shell:
-        "bbmap.sh "
-            "in1={input.r1} "
-            "in2={input.r2} "
-            "path={input.idx_dir} "
-            "build={params.build_id} "
-            "out={output.bam} "
-            "statsfile={output.stats} "
-            "mappedonly=t "
-            "minid={params.minid} "
-            "ambiguous={params.ambig} "
-            "pairedonly={params.pairedonly} "
-            "killbadpairs={params.killbadpairs} "
-            "-Xmx{params.mem} "
-            "threads={threads} "
-            "pigz=t unpigz=t "
-            "overwrite=t "
-            f"{BBMAP_JNI_FLAG} "  # Adds 'usejni=t' or 'usejni=f'
-        "> {log.path} 2>&1"
+        r"""
+        (minimap2 -ax sr -t {threads} {input.idx} {input.r1} {input.r2} \
+            | samtools view -q 20 -F 0x900 -b - > {output.bam}) 2> {log.path}
+        samtools flagstat {output.bam} > {output.stats} 2>> {log.path}
+        """
 
 # --- Sort BAM file using Sambamba --- #
 rule sambamba_sort:

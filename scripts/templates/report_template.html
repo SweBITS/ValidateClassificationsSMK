@@ -45,8 +45,9 @@
             <tr><td>Kraken Confidence</td><td>{{ general_info.config.kraken_conf | default('N/A') }}</td></tr>
             <tr><td>Kraken Min Hit Groups</td><td>{{ general_info.config.kraken_mhg | default('N/A') }}</td></tr>
             <tr><td>Validation Coverage Cutoff</td><td>{{ general_info.config.cov_cutoff | default('N/A') }}</td></tr>
-            <tr><td>Simulation Target Coverage</td><td>{{ general_info.config.sim_cov_target | default('N/A') }}X</td></tr>
-            <tr><td>BBMap Min Identity</td><td>{{ general_info.config.bbmap_minid | default('N/A') }}</td></tr>
+            <tr><td>Aligner</td><td>Minimap2 (-ax sr)</td></tr>
+            <tr><td>Slicing Window Size</td><td>{{ general_info.config.slice_window | default(300) }} bp</td></tr>
+            <tr><td>Slicing Step Size</td><td>{{ general_info.config.slice_step | default(50) }} bp</td></tr>
         </table>
     </div>
 
@@ -58,13 +59,12 @@
                 <tr>
                     <th>Name</th>
                     <th>TaxID</th>
-                    <th>NumInputPairs</th>
-                    <th>NumMappedR1</th>
-                    <th>%MappedR1</th>
-                    <th>NumMappedR2</th>
-                    <th>%MappedR2</th>
-                    <th>NumMappedMatedPairs</th>
-                    <th>%MappedMatedPairs</th>                    
+                    <th>TotalReads</th>
+                    <th>InputPairs</th>
+                    <th>MappedReads</th>
+                    <th>%Mapped</th>
+                    <th>ProperlyPaired</th>
+                    <th>%ProperlyPaired</th>                    
                     <th>NumDupsRemoved (SE)</th>
                     <th>GenomeSize (bp)</th>
                     <th>NumContigs</th>
@@ -78,13 +78,12 @@
                         {{ sample.info.name | default('N/A') }}
                     </td>
                     <td>{{ sample.info.tax_id | default('N/A') }}</td>
+                    <td>{{ sample.real_mapping_stats.input_reads_processed | format_metric(0) }}</td>
                     <td>{{ sample.real_mapping_stats.input_read_pairs | format_metric(0) }}</td>
-                    <td>{{ sample.real_mapping_stats.r1_mapped_count | format_metric(0) }}</td>
-                    <td>{{ sample.real_mapping_stats.r1_mapped_percent | format_metric(2) }}%</td>
-                    <td>{{ sample.real_mapping_stats.r2_mapped_count | format_metric(0) }}</td>
-                    <td>{{ sample.real_mapping_stats.r2_mapped_percent | format_metric(2) }}%</td>
-                    <td>{{ sample.real_mapping_stats.pairing_mated_pairs_count | format_metric(0) }}</td>
-                    <td>{{ sample.real_mapping_stats.pairing_mated_pairs_percent | format_metric(2) }}%</td>
+                    <td>{{ sample.real_mapping_stats.mapped_reads_count | format_metric(0) }}</td>
+                    <td>{{ sample.real_mapping_stats.mapped_reads_percent | format_metric(2) }}%</td>
+                    <td>{{ sample.real_mapping_stats.properly_paired_count | format_metric(0) }}</td>
+                    <td>{{ sample.real_mapping_stats.properly_paired_percent | format_metric(2) }}%</td>
                     <td>{{ sample.dedup_stats.duplicates_removed | format_metric(0) }}</td>
                     <td>{{ sample.genome_info.genome_size | format_metric(0) }}</td>
                     <td>{{ sample.genome_info.contig_count | format_metric(0) }}</td>
@@ -95,26 +94,22 @@
         </table>
     </div>
 
-    {# ========================== Aggregated Table 2: Simulation & Classification Performance ========================== #}
+    {# ========================== Aggregated Table 2: Slicing & Classification Performance ========================== #}
     <div class="section">
-        <h2>Read Simulation, Classification, & Classifiable Regions</h2>
+        <h2>Reference Slicing, Classification, & Classifiable Regions</h2>
         <table id="simValTable" class="sortable">
             <thead>
                 <tr>
                     <th>Name</th>
                     <th>TaxID</th>
-                    <th>EstInsertSize</th>
-                    <th>EstReadLen</th>
-                    <th>UsedInsertSize</th>
-                    <th>UsedReadLen</th>
-                    <th>NumSimPairs</th>
+                    <th>Window (bp)</th>
+                    <th>Step (bp)</th>
+                    <th>NumSlicedReads</th>
                     <th>NumTrueClass</th>
                     <th>%TrueClass</th>
-                    <th>NumMappedR1</th>
-                    <th>%MappedR1</th>
-                    <th>NumMappedR2</th>
-                    <th>%MappedR2</th>                    
-                    <th>ClassRegionLen Length (bp)</th>
+                    <th>NumMappedSimReads</th>
+                    <th>%MappedSimReads</th>                    
+                    <th>ClassRegionLen (bp)</th>
                     <th>%ClassRegion</th>
                 </tr>
             </thead>
@@ -125,17 +120,13 @@
                         {{ sample.info.name | default('N/A') }}
                     </td>
                     <td>{{ sample.info.tax_id | default('N/A') }}</td>
-                    <td>{{ sample.sim_params_data.sim_params_estimated_insert_size | format_metric(1) }} ± {{ sample.sim_params_data.sim_params_estimated_std_insert_size | format_metric(1) }}</td>
-                    <td>{{ sample.sim_params_data.sim_params_estimated_read_length | format_metric(1) }}</td>
-                    <td>{{ sample.sim_params_data.sim_params_used_insert_size | format_metric(1) }} ± {{ sample.sim_params_data.sim_params_used_std_insert_size | format_metric(1) }}</td>
-                    <td>{{ sample.sim_params_data.sim_params_used_read_length | format_metric(1) }}</td>
-                    <td>{{ sample.pirs_log_stats.simulated_pairs | format_metric(0) }}</td>
+                    <td>{{ sample.tiling_info.window_size | default(300) }}</td>
+                    <td>{{ sample.tiling_info.step_size | default(50) }}</td>
+                    <td>{{ sample.sim_classified_reads.total_pe_reads_processed | format_metric(0) }}</td>
                     <td>{{ sample.sim_classified_reads.correctly_classified_pe_reads | format_metric(0) }}</td>
                     <td>{{ sample.sim_classified_reads.correctly_classified_pe_perc | format_metric(2) }}%</td>
-                    <td>{{ sample.simulated_mapping_stats.r1_mapped_count | format_metric(0) }}</td>
-                    <td>{{ sample.simulated_mapping_stats.r1_mapped_percent | format_metric(2) }}%</td>
-                    <td>{{ sample.simulated_mapping_stats.r2_mapped_count | format_metric(0) }}</td>
-                    <td>{{ sample.simulated_mapping_stats.r2_mapped_percent | format_metric(2) }}%</td>                    
+                    <td>{{ sample.simulated_mapping_stats.mapped_reads_count | format_metric(0) }}</td>
+                    <td>{{ sample.simulated_mapping_stats.mapped_reads_percent | format_metric(2) }}%</td>                    
                     <td>{{ sample.classifiable_regions.classif_regions_total_length | format_metric(0) }}</td>
                     <td>{{ sample.classifiable_regions.classif_regions_percent_genome | format_metric(2) }}%</td>
                 </tr>
@@ -146,7 +137,7 @@
 
     {# ========================== Individual Scatter Plots Section ========================== #}
     <div class="section">
-        <h2>Mapped Simulated Reads vs. Classifiable Region Length</h2>
+        <h2>Real Reads vs. Classifiable Region Length (Per Contig)</h2>
         {% if samples %}
             {% for sample in samples %}
             <div class="metric-group">

@@ -45,8 +45,9 @@ try:
     markdup_logs = snk_input.markdup_logs				# Sambamba markdup stats
     dedup_bams = snk_input.dedup_bams					# Deduplicated bam files
     coverage_files = snk_input.coverage_files			# Coverage files
-    sim_params_jsons = snk_input.sim_params_jsons		# pIRS read simulation parameters
-    pirs_logs = snk_input.pirs_logs						# pIRS logs
+    sim_params_jsons = getattr(snk_input, 'sim_params_jsons', [])
+    pirs_logs = getattr(snk_input, 'pirs_logs', [])
+    slice_logs = getattr(snk_input, 'slice_logs', [])
     correct_ids_logs = snk_input.correct_ids_logs		# ??
     sim_stats_files = snk_input.sim_stats				# ??
     classifiable_beds = snk_input.classifiable_beds		# Classifiable region BED files
@@ -163,6 +164,13 @@ def parse_bbmap_stats(filepath):
         'input_reads_processed': 'N/A',
         'input_read_pairs': 'N/A',
         
+        'mapped_reads_count': 'N/A',
+        'mapped_reads_percent': 'N/A',
+        'properly_paired_count': 'N/A',
+        'properly_paired_percent': 'N/A',
+        'singletons_count': 'N/A',
+        'singletons_percent': 'N/A',
+
         'pairing_mated_pairs_count': 'N/A',
         'pairing_mated_pairs_percent': 'N/A',
         'pairing_bad_pairs_count': 'N/A',
@@ -188,16 +196,58 @@ def parse_bbmap_stats(filepath):
         'r2_unmapped_percent': 'N/A'}
 
     if not filepath:
-        logging.warning("BBMap stats filepath was None. Returning N/A stats.")
+        logging.warning("Stats filepath was None. Returning N/A stats.")
         return stats
 
     current_section = None # Will be "pairing", "read1", or "read2"
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
+            all_lines = [l.strip() for l in f if l.strip()]
+
+        # Handle samtools flagstat output (from minimap2 mapping)
+        if any("QC-passed reads" in l for l in all_lines):
+            for line in all_lines:
+                if "in total (QC-passed" in line:
+                    total = int(line.split()[0])
+                    stats['input_reads_processed'] = total
+                    stats['input_read_pairs'] = total // 2
+                elif re.search(r"^\d+ \+ \d+ mapped \(", line):
+                    mapped_cnt = int(line.split()[0])
+                    try:
+                        pct = float(line.split('(')[1].split('%')[0].strip())
+                    except (IndexError, ValueError):
+                        pct = 0.0
+                    stats['mapped_reads_count'] = mapped_cnt
+                    stats['mapped_reads_percent'] = pct
+                    stats['r1_mapped_count'] = mapped_cnt
+                    stats['r1_mapped_percent'] = pct
+                    stats['r1_unambiguous_count'] = mapped_cnt
+                    stats['r1_unambiguous_percent'] = pct
+                    stats['r2_mapped_count'] = mapped_cnt
+                    stats['r2_mapped_percent'] = pct
+                    stats['r2_unambiguous_count'] = mapped_cnt
+                    stats['r2_unambiguous_percent'] = pct
+                elif "properly paired (" in line:
+                    pp_cnt = int(line.split()[0])
+                    try:
+                        pct = float(line.split('(')[1].split('%')[0].strip())
+                    except (IndexError, ValueError):
+                        pct = 0.0
+                    stats['properly_paired_count'] = pp_cnt
+                    stats['properly_paired_percent'] = pct
+                    stats['pairing_mated_pairs_count'] = pp_cnt // 2
+                    stats['pairing_mated_pairs_percent'] = pct
+                elif "singletons (" in line:
+                    sing_cnt = int(line.split()[0])
+                    try:
+                        pct = float(line.split('(')[1].split('%')[0].strip())
+                    except (IndexError, ValueError):
+                        pct = 0.0
+                    stats['singletons_count'] = sing_cnt
+                    stats['singletons_percent'] = pct
+            return stats
+
+        for line in all_lines:
 
                 # Global stat
                 if line.startswith("Reads Used:"):
@@ -558,6 +608,9 @@ def parse_extract_ids_log(filepath):
                         stats['correctly_classified_pe_reads'] = corr_class_pe_reads
                         stats['correctly_classified_pe_perc'] = corr_class_perc
                         stats['total_pe_reads_processed'] = total_pe_reads_processed
+                        stats['correctly_classified_reads'] = corr_class_pe_reads
+                        stats['correctly_classified_perc'] = corr_class_perc
+                        stats['total_sliced_reads'] = total_pe_reads_processed
                         
                         logging.debug(
                             f"Found these values: "
@@ -849,7 +902,13 @@ else:
         coverage_file = find_input_file("coverage_files", sample_wildcards, coverage_files, path_patterns)
         current_sample_metrics['real_coverage_depth'] = read_coverage_value(coverage_file)
 
-        # --- SIMULATION ---
+        # --- SLICING / TILING ---
+        current_sample_metrics['tiling_info'] = {
+            'window_size': report_config_dict.get('slice_window', 300),
+            'step_size': report_config_dict.get('slice_step', 50)
+        }
+
+        # --- SIMULATION (Legacy Fallback) ---
         sim_params_file = find_input_file("sim_params_jsons", sample_wildcards, sim_params_jsons, path_patterns)
         current_sample_metrics['sim_params_data'] = parse_sim_params_json(sim_params_file)
         current_sample_metrics['sim_target_coverage'] = report_config_dict.get('sim_cov_target', 'N/A')

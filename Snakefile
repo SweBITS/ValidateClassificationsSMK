@@ -46,18 +46,6 @@ if config.get("RUN_VALIDATION", True) and config.get("KRAKEN2_BIN_DIR"):
          sys.exit(f"ERROR: 'kraken2' not found or not executable in {kraken2_bin_dir}")
     print(f"WORKFLOW_INFO: Will use Kraken 2 binary in directory {kraken2_bin_dir}")
 
-# --- Environment Detection --- #
-# Detect WSL vs native Linux. BBMap JNI acceleration (`usejni=t`) failed on WSL
-# during development due to linking issues. Set flag to `usejni=f` (WSL) or 
-# `usejni=t` (Linux) for compatibility/performance.
-IS_WSL = 'WSL_DISTRO_NAME' in os.environ or 'WSL_INTEROP' in os.environ
-
-if IS_WSL:
-    print("WORKFLOW_INFO: WSL environment detected. Explicitly disabling BBMap JNI acceleration (usejni=f) due to known compatibility issues.")
-    BBMAP_JNI_FLAG = "usejni=f"
-else:
-    print("WORKFLOW_INFO: Non-WSL environment detected. Enabling BBMap JNI acceleration (usejni=t).")
-    BBMAP_JNI_FLAG = "usejni=t"
 
 # ==================== #
 # --- HELPER FUNCS --- #
