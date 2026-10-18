@@ -8,7 +8,14 @@
 
 # --- 1. Core Inputs, Taxonomy & Database Paths --- #
 targets_tsv: "config/targets.tsv"
-database_manifest: "input/database_manifest.tsv"
+
+# Database Manifest (assembly metadata used for reference genome selection)
+# Compress with gzip to save space; the pipeline transparently supports both .tsv and .tsv.gz.
+# Comment/uncomment the manifest corresponding to your classification database:
+database_manifest: "config/manifests/master_db_2025_manifest.tsv.gz"
+# database_manifest: "config/manifests/master_db_2024_manifest.tsv.gz"
+# database_manifest: "config/manifests/custom_db_manifest.tsv.gz"
+
 joltax_cache_dir: "/proj/nobackup/snic2019-35-73/private/daniel/98-MISC/joltax_cache/master_db_2025"
 merged_canonical_counts_tsv: "input/merged_reports/lj_stringent_canonical_counts.tsv.gz"
 

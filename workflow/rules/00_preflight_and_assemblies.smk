@@ -26,18 +26,26 @@ Path("{output.info_json}").write_text(json.dumps({{
         """
 
 
+def get_database_manifest(wildcards=None):
+    raw = config.get("database_manifest", "config/manifests/master_db_2025_manifest.tsv.gz")
+    p = Path(raw)
+    if not p.is_file() and Path(str(p) + ".gz").is_file():
+        return str(Path(str(p) + ".gz"))
+    return str(p)
+
+
 rule resolve_clades_and_assemblies:
     """
     WHY:
     Expands each target species TaxID in `config/targets.tsv` into its full descendant clade
     using JolTax, queries `lj_stringent_canonical_counts.tsv.gz` for Pre-Flight Gate 1
     (>= 1,000 total clade reads across 516 weeks) and baseline weekly read counts, checks
-    `database_manifest.tsv` for Pre-Flight Gate 2 (excluding organellar-only clades), and
-    applies the 4-tier deterministic cascade to select the single best reference assembly.
+    the configured database manifest for Pre-Flight Gate 2 (excluding organellar-only clades),
+    and applies the 4-tier deterministic cascade to select the single best reference assembly.
     """
     input:
         targets = config["targets_tsv"],
-        manifest = config["database_manifest"],
+        manifest = get_database_manifest,
         canonical_counts = config["merged_canonical_counts_tsv"]
     output:
         ledger = "results/00_ledger/stage0_preflight_and_assemblies.tsv",

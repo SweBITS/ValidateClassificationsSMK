@@ -41,9 +41,10 @@ Conversely, false-positive detections (caused by cross-mapping to conserved rRNA
 ValidateClassificationsSMK/
 ├── config/
 │   ├── config.yaml                  # Algorithmic parameters, database paths & SLURM resources
-│   └── targets.tsv                  # User-facing target species table (t_id, t_species)
+│   ├── targets.tsv                  # User-facing target species table (t_id, t_species, override_accession)
+│   └── manifests/                   # Versioned database assembly manifests (*.tsv.gz)
+│       └── master_db_2025_manifest.tsv.gz
 ├── input/                           # External inputs (git-ignored except .gitkeep)
-│   ├── database_manifest.tsv        # Kraken 2 reference assembly metadata manifest
 │   ├── classifications/             # 516 weekly per-read Kraken 2 files ({sample}.kraken2.gz)
 │   ├── fastq/                       # 516 weekly paired-end FASTQ files ({sample}_R{1,2}.fastq.gz)
 │   └── merged_reports/              # Merged weekly canonical counts (lj_stringent_canonical_counts.tsv.gz)
@@ -72,7 +73,7 @@ t_id	t_species
 You do **not** need to look up assembly accessions or download FASTA files manually.
 
 ### 2. Review Parameters (`config/config.yaml`)
-All thresholds (`min_total_reads: 1000`, `coverage_tier: "2x"`, `n_bins: 100`, `target_r: 0.90`, `min_retained_cr_frac: 0.50`) and cluster paths (`input/database_manifest.tsv`, `joltax_cache_dir`, `kraken2_db_path`) are pre-configured in [`config/config.yaml`](config/config.yaml).
+All thresholds (`min_total_reads: 1000`, `coverage_tier: "2x"`, `n_bins: 100`, `target_r: 0.90`, `min_retained_cr_frac: 0.50`) and cluster paths (`config/manifests/master_db_2025_manifest.tsv.gz`, `joltax_cache_dir`, `kraken2_db_path`) are pre-configured in [`config/config.yaml`](config/config.yaml).
 
 ### 3. Run on Kebnekaise (SLURM)
 ```bash

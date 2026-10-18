@@ -419,8 +419,13 @@ def main() -> None:
     all_clade_tids: Set[int] = set().union(*clade_map.values()) if clade_map else set()
     clade_assemblies: Dict[int, List[Dict[str, str]]] = {item["t_id"]: [] for item in targets}
 
-    logger.info(f"Scanning database manifest {args.manifest} for {len(all_clade_tids)} clade TaxIDs ...")
-    with open(args.manifest, "r", encoding="utf-8") as mfh:
+    manifest_path = Path(args.manifest)
+    if not manifest_path.is_file() and Path(str(manifest_path) + ".gz").is_file():
+        manifest_path = Path(str(manifest_path) + ".gz")
+
+    logger.info(f"Scanning database manifest {manifest_path} for {len(all_clade_tids)} clade TaxIDs ...")
+    open_manifest = gzip.open if str(manifest_path).endswith(".gz") else open
+    with open_manifest(manifest_path, "rt", encoding="utf-8", errors="replace") as mfh:
         mreader = csv.DictReader(mfh, delimiter="\t")
         for row in mreader:
             raw_t = (row.get("t_id") or "").strip()
