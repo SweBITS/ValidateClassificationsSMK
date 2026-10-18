@@ -58,7 +58,7 @@ def load_active_clade_mapping(
     active_species_tsv: Path,
     clade_map_tsv: Path,
     logger,
-) -> Tuple_Dicts := tuple:
+) -> tuple[List[int], Dict[int, List[int]]]:
     """
     Load active target TaxIDs (passing Stage 0 & Stage 1) and their JolTax descendant clades.
     Returns `(active_tids, desc_to_targets)` where `desc_to_targets` maps each descendant
