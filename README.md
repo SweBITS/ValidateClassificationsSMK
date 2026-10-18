@@ -106,3 +106,11 @@ Every target species is tracked from start to finish—failed or excluded specie
 - `EXCLUDED_ORGANELLAR_ONLY`: Clade represented solely by mitochondrial/chloroplast/plastid sequences in the Kraken 2 database.
 - `EXCLUDED_INSUFFICIENT_CONTIG_LENGTH`: Fewer than $100\text{ kb}$ of sequence remained after removing $< 1,000\text{ bp}$ contigs.
 - `EXCLUDED_FILTERED_ASSEMBLY_PROPORTION`: More than $50\%$ of assembly base pairs were discarded by the $< 1,000\text{ bp}$ filter.
+
+---
+
+## Technical Documentation & In-Depth Analyses
+
+- [`docs/NCBI_ASSEMBLY_SUPPRESSION_ANALYSIS.md`](docs/NCBI_ASSEMBLY_SUPPRESSION_ANALYSIS.md): **Empirical Analysis of NCBI Assembly Suppressions & Grand-Scale Workarounds**.
+  An empirical audit of all 107,575 GenBank and RefSeq assemblies in `input/database_manifest.tsv`, explaining why re-annotation and submitter requests cause suppressions, evaluating underlying GenBank availability, and outlining automated workarounds (such as `GCF_` $\rightarrow$ `GCA_` fallback and handling DToL v2 chromosome updates) for future grand-scale executions.
+
