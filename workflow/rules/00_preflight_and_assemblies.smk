@@ -99,7 +99,8 @@ rule download_and_rehydrate_assemblies:
     parallel MD5 checksum verification with automatic retry on corrupt/truncated files.
     """
     input:
-        accessions = "results/01_inputs/ncbi_datasets/selected_accessions.txt"
+        accessions = "results/01_inputs/ncbi_datasets/selected_accessions.txt",
+        targets = config["targets_tsv"]
     output:
         manifest = "results/01_inputs/ncbi_datasets/accession_to_fasta.tsv",
         flag = "results/01_inputs/ncbi_datasets/rehydrate.done"
@@ -125,6 +126,7 @@ rule download_and_rehydrate_assemblies:
         r"""
         python {params.script} \
             --accessions-file {input.accessions} \
+            --targets {input.targets} \
             --work-dir {params.work_dir} \
             --local-assemblies-dir {params.local_assemblies} \
             --out-manifest {output.manifest} \

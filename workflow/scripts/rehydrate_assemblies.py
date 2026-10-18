@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common_ledger import find_local_assembly, setup_logger
+from common_ledger import extract_accession_from_override, resolve_local_genome_file, setup_logger
 
 
 def run_cmd(cmd: List[str], logger, cwd: Optional[Path] = None) -> bool:
@@ -238,6 +238,7 @@ def main() -> None:
         description="Bulk download dehydrated NCBI genome packages, rehydrate with MD5 checks, and emit accession->FASTA manifest."
     )
     parser.add_argument("--accessions-file", required=True, help="Path to selected_accessions.txt")
+    parser.add_argument("--targets", default=None, help="Optional path to config/targets.tsv for local file overrides")
     parser.add_argument("--work-dir", required=True, help="Directory for dehydrated.zip and download_dir")
     parser.add_argument("--out-manifest", required=True, help="Output TSV: accession_to_fasta.tsv")
     parser.add_argument("--out-flag", required=True, help="Output completion flag file")
@@ -273,13 +274,26 @@ def main() -> None:
 
     local_dir = Path(args.local_assemblies_dir) if args.local_assemblies_dir else None
     local_assemblies: Dict[str, Tuple[Path, int]] = {}
-    for acc in accessions:
-        lfp = find_local_assembly(acc, local_dir)
-        if lfp:
-            local_assemblies[acc] = (lfp, lfp.stat().st_size)
-            logger.info(
-                f"Accession {acc} found in local assemblies dir: {lfp} ({lfp.stat().st_size:,} bytes). Skipping NCBI download."
+
+    # Check targets.tsv for any species explicitly configured with a local genome filename/path
+    if args.targets and Path(args.targets).is_file():
+        targets_file = Path(args.targets)
+        with open(targets_file, "r", encoding="utf-8") as tfh:
+            reader = csv.DictReader(
+                (line for line in tfh if line.strip() and not line.lstrip().startswith("#")),
+                delimiter="\t",
             )
+            for row in reader:
+                raw_ov = (row.get("override_accession") or "").strip()
+                if raw_ov:
+                    lfp = resolve_local_genome_file(raw_ov, local_dir)
+                    if lfp:
+                        clean_acc = extract_accession_from_override(raw_ov, lfp)
+                        local_assemblies[clean_acc] = (lfp, lfp.stat().st_size)
+                        logger.info(
+                            f"Target TaxID {row.get('t_id')} ({row.get('t_species', '')}) specifies local genome file "
+                            f"{lfp.name} ({lfp.stat().st_size:,} bytes). Skipping NCBI download for {clean_acc}."
+                        )
 
     accs_to_download = [acc for acc in accessions if acc not in local_assemblies]
 

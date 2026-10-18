@@ -63,7 +63,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common_ledger import (
     ValidationStatus,
     clean_ncbi_accession,
-    find_local_assembly,
+    extract_accession_from_override,
+    resolve_local_genome_file,
     sanitize_species_slug,
     setup_logger,
 )
@@ -611,20 +612,11 @@ def main() -> None:
             if not is_organellar_row(r) and r.get("a_status", "").strip().lower() == "current"
         ]
 
-        # Partition nuclear_manifest_rows into live-available (with GCF->GCA fallback and local assemblies) vs. suppressed on NCBI
+        # Partition nuclear_manifest_rows into live-available (with GCF->GCA fallback) vs. suppressed on NCBI
         nuclear_current_rows: List[Dict[str, str]] = []
         suppressed_details: List[str] = []
         for r in nuclear_manifest_rows:
             c_acc = clean_ncbi_accession(r.get("a_accession", ""))
-            local_fp = find_local_assembly(c_acc, local_assemblies_dir)
-            if local_fp:
-                r_copy = dict(r)
-                r_copy["_local_path"] = str(local_fp)
-                nuclear_current_rows.append(r_copy)
-                logger.info(
-                    f"TaxID {tid} ({sci_name}): candidate assembly {c_acc} is locally provided at {local_fp}"
-                )
-                continue
             if live_ncbi_meta:
                 m_entry = live_ncbi_meta.get(c_acc)
                 ncbi_st = m_entry["status"] if m_entry else "missing_on_ncbi"
@@ -671,40 +663,45 @@ def main() -> None:
                 f"min_total_reads threshold ({args.min_total_reads:,})"
             )
         elif override_acc:
-            # Manual user override from config/targets.tsv bypasses database_manifest.tsv selection
-            c_ov = clean_ncbi_accession(override_acc)
-            local_fp = find_local_assembly(c_ov, local_assemblies_dir)
-            ov_meta = live_ncbi_meta.get(c_ov) if live_ncbi_meta else None
-            ov_st = ov_meta["status"] if ov_meta else ("unknown" if not live_ncbi_meta else "missing_on_ncbi")
-            ov_rsn = ov_meta["reason"] if ov_meta else "not returned by NCBI datasets"
-
-            resolved_ov_acc = c_ov
-            ov_sel_reason = "manual_override"
-
+            # Manual user override from config/targets.tsv (either a local genome filename/path or an NCBI accession)
+            local_fp = resolve_local_genome_file(override_acc, local_assemblies_dir)
             if local_fp:
-                resolved_ov_acc = c_ov
-                ov_sel_reason = f"manual_override+local_assembly({local_fp.name})"
+                resolved_ov_acc = extract_accession_from_override(override_acc, local_fp)
+                ov_sel_reason = f"local_genome_file({local_fp.name})"
+                ov_meta = None
+                ov_st = "local"
+                ov_rsn = f"provided locally at {local_fp}"
                 logger.info(
-                    f"TaxID {tid} ({sci_name}): manual override {c_ov} is locally provided at {local_fp}"
+                    f"TaxID {tid} ({sci_name}): manual override specifies local genome file {local_fp} "
+                    f"(accession identifier: {resolved_ov_acc})"
                 )
-            elif live_ncbi_meta and ov_st in {"suppressed", "withdrawn", "retired", "missing_on_ncbi"}:
-                gca_equiv = _find_live_gca_for_suppressed_gcf(c_ov)
-                if gca_equiv:
-                    resolved_ov_acc = gca_equiv
-                    ov_meta = live_ncbi_meta[gca_equiv]
-                    ov_st = ov_meta["status"]
-                    ov_sel_reason = f"manual_override+gcf_to_gca_fallback({c_ov}->{gca_equiv})"
-                    logger.info(
-                        f"TaxID {tid} ({sci_name}): manual override {c_ov} is suppressed on RefSeq; "
-                        f"falling back to live GenBank equivalent {gca_equiv}"
-                    )
-                else:
-                    resolved_ov_acc = ""
+            else:
+                c_ov = clean_ncbi_accession(override_acc)
+                ov_meta = live_ncbi_meta.get(c_ov) if live_ncbi_meta else None
+                ov_st = ov_meta["status"] if ov_meta else ("unknown" if not live_ncbi_meta else "missing_on_ncbi")
+                ov_rsn = ov_meta["reason"] if ov_meta else "not returned by NCBI datasets"
+
+                resolved_ov_acc = c_ov
+                ov_sel_reason = "manual_override"
+
+                if live_ncbi_meta and ov_st in {"suppressed", "withdrawn", "retired", "missing_on_ncbi"}:
+                    gca_equiv = _find_live_gca_for_suppressed_gcf(c_ov)
+                    if gca_equiv:
+                        resolved_ov_acc = gca_equiv
+                        ov_meta = live_ncbi_meta[gca_equiv]
+                        ov_st = ov_meta["status"]
+                        ov_sel_reason = f"manual_override+gcf_to_gca_fallback({c_ov}->{gca_equiv})"
+                        logger.info(
+                            f"TaxID {tid} ({sci_name}): manual override {c_ov} is suppressed on RefSeq; "
+                            f"falling back to live GenBank equivalent {gca_equiv}"
+                        )
+                    else:
+                        resolved_ov_acc = ""
 
             if not resolved_ov_acc:
                 status = ValidationStatus.EXCLUDED_NCBI_UNAVAILABLE
                 reason = (
-                    f"Manual override assembly {c_ov} is unavailable on live NCBI "
+                    f"Manual override assembly {override_acc} is unavailable on live NCBI "
                     f"[status={ov_st}: {ov_rsn}] and no live GCA equivalent exists"
                 )
             else:
@@ -723,12 +720,12 @@ def main() -> None:
                 chosen_source = (
                     (ov_meta["source_db"] if ov_meta else None)
                     or (manifest_match.get("a_source_db", "").strip() if manifest_match else None)
-                    or ("REFSEQ" if resolved_ov_acc.startswith("GCF_") else "GENBANK")
+                    or ("LOCAL" if local_fp else ("REFSEQ" if resolved_ov_acc.startswith("GCF_") else "GENBANK"))
                 )
                 chosen_level = (
                     (ov_meta["level"] if ov_meta and ov_meta["level"] != "NA" else None)
                     or (manifest_match.get("a_level", "").strip() if manifest_match else None)
-                    or "NA"
+                    or ("Local" if local_fp else "NA")
                 )
                 chosen_refseq = (
                     (ov_meta["refseq_category"] if ov_meta and ov_meta["refseq_category"] != "none" else None)
@@ -738,7 +735,7 @@ def main() -> None:
                 chosen_seqlen = (
                     (ov_meta["seqlen"] if ov_meta and ov_meta["seqlen"] != "NA" else None)
                     or (manifest_match.get("a_seqlen", "").strip() if manifest_match else None)
-                    or "NA"
+                    or (str(local_fp.stat().st_size) if local_fp else "NA")
                 )
                 selection_reason = ov_sel_reason
                 status = ValidationStatus.PASSED_STAGE0
@@ -778,9 +775,6 @@ def main() -> None:
             fb_note = chosen_row.get("_fallback_note", "")
             if fb_note:
                 sel_reason = f"{sel_reason}+{fb_note}"
-            fb_local = chosen_row.get("_local_path", "")
-            if fb_local:
-                sel_reason = f"{sel_reason}+local_assembly({Path(fb_local).name})"
             chosen_acc = chosen_row.get("a_accession", "").strip()
             clean_acc = clean_ncbi_accession(chosen_acc)
             chosen_taxid = chosen_row.get("t_id", "").strip()

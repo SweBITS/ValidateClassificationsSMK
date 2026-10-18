@@ -143,32 +143,42 @@ def sample_id_to_year_week(sample_id: str) -> Optional[str]:
     return None
 
 
-def find_local_assembly(acc: str, local_dir: Optional[Path]) -> Optional[Path]:
+def resolve_local_genome_file(raw_val: str, local_dir: Optional[Path] = None) -> Optional[Path]:
     """
-    Look for a locally provided reference FASTA file matching an accession in `local_dir`.
+    Check if `raw_val` refers to a locally provided genome FASTA file.
 
     WHY:
-    When an NCBI assembly is suppressed/withdrawn (e.g. Columba palumbus GCA_965250375.1)
-    or when researchers use proprietary/in-house assemblies not hosted at NCBI, providing
-    the FASTA locally in `input/local_assemblies/` allows the pipeline to validate against it
-    without attempting dehydrated download from NCBI Datasets.
+    Instead of guessing file paths by scanning directories for accession prefixes,
+    users can explicitly specify the filename or relative/absolute path of their local
+    genome in the 3rd column of `config/targets.tsv` (e.g. 'GCA_965250375.1_bColPal1.1_genomic.fna').
+    This function checks if the file exists directly or inside `local_dir` (default: 'input/local_assemblies').
     """
-    if not local_dir:
+    if not raw_val:
         return None
-    ld = Path(local_dir)
-    if not ld.is_dir():
+    val_clean = raw_val.strip()
+    if not val_clean or val_clean.upper() in {"NA", "NONE", "NULL", "-"}:
         return None
-    c_acc = clean_ncbi_accession(acc)
-    # 1. Exact base matches
-    for ext in (".fna", ".fasta", ".fa", ".fna.gz", ".fasta.gz", ".fa.gz"):
-        cand = ld / f"{c_acc}{ext}"
+    p = Path(val_clean)
+    if p.is_file():
+        return p.resolve()
+    if local_dir:
+        cand = Path(local_dir) / val_clean
         if cand.is_file():
             return cand.resolve()
-    # 2. Prefix matches (e.g. GCA_965250375.1_bColPal1.1_genomic.fna)
-    try:
-        for p in ld.iterdir():
-            if p.is_file() and (p.name.startswith(f"{c_acc}_") or p.name.startswith(f"{c_acc}.")):
-                return p.resolve()
-    except OSError:
-        pass
     return None
+
+
+def extract_accession_from_override(raw_val: str, filepath: Optional[Path] = None) -> str:
+    """
+    Extract the clean assembly accession (e.g. 'GCA_965250375.1') from an override string or filename.
+    """
+    val = (raw_val or "").strip()
+    m = re.search(r"(GC[AF]_\d+\.\d+)", val)
+    if m:
+        return m.group(1)
+    if filepath and filepath.name:
+        m2 = re.search(r"(GC[AF]_\d+\.\d+)", filepath.name)
+        if m2:
+            return m2.group(1)
+        return filepath.name.split(".")[0]
+    return clean_ncbi_accession(val)
