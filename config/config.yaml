@@ -22,9 +22,9 @@ kraken2_bin_dir: "/pfs/proj/nobackup/fs/projnb10/snic2019-35-73/bin/kraken2_SweB
 kraken2_confidence: 0.1
 kraken2_minimum_hit_groups: 10
 
-# Upstream 516-Sample Kraken 2 Classifications & Trimmed Metagenomic FASTQs
+# Upstream 516-Sample Kraken 2 Classifications & Trimmed/Human-Filtered Metagenomic FASTQs
 sample_kraken_pattern: "input/classifications/{sample}.kraken2.gz"
-raw_fastq_pattern: "/proj/nobackup/snic2019-35-73/data/02-LJUNGBYHED/01-SERIES_2013/04_LJUNGBYHED_TRIMMED_FASTQ/files/{sample}_R{pair}.fastq.gz"
+raw_fastq_pattern: "/proj/nobackup/snic2019-35-73/data/02-LJUNGBYHED/01-SERIES_2013/05-HUMAN_FILTERED_FASTQ/primates_filtered/fastq/{sample}_R{pair}.fastq.gz"
 
 # NCBI Datasets Bulk Download / Rehydration Settings
 ncbi_api_key: ""               # Optional; falls back to $NCBI_API_KEY env var if set
