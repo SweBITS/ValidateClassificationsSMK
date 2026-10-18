@@ -141,3 +141,34 @@ def sample_id_to_year_week(sample_id: str) -> Optional[str]:
     if m2:
         return f"{int(m2.group(1)):04d}_{int(m2.group(2)):02d}"
     return None
+
+
+def find_local_assembly(acc: str, local_dir: Optional[Path]) -> Optional[Path]:
+    """
+    Look for a locally provided reference FASTA file matching an accession in `local_dir`.
+
+    WHY:
+    When an NCBI assembly is suppressed/withdrawn (e.g. Columba palumbus GCA_965250375.1)
+    or when researchers use proprietary/in-house assemblies not hosted at NCBI, providing
+    the FASTA locally in `input/local_assemblies/` allows the pipeline to validate against it
+    without attempting dehydrated download from NCBI Datasets.
+    """
+    if not local_dir:
+        return None
+    ld = Path(local_dir)
+    if not ld.is_dir():
+        return None
+    c_acc = clean_ncbi_accession(acc)
+    # 1. Exact base matches
+    for ext in (".fna", ".fasta", ".fa", ".fna.gz", ".fasta.gz", ".fa.gz"):
+        cand = ld / f"{c_acc}{ext}"
+        if cand.is_file():
+            return cand.resolve()
+    # 2. Prefix matches (e.g. GCA_965250375.1_bColPal1.1_genomic.fna)
+    try:
+        for p in ld.iterdir():
+            if p.is_file() and (p.name.startswith(f"{c_acc}_") or p.name.startswith(f"{c_acc}.")):
+                return p.resolve()
+    except OSError:
+        pass
+    return None

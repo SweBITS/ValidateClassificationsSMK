@@ -27,14 +27,15 @@ import json
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import zipfile
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common_ledger import setup_logger
+from common_ledger import find_local_assembly, setup_logger
 
 
 def run_cmd(cmd: List[str], logger, cwd: Optional[Path] = None) -> bool:
@@ -175,45 +176,53 @@ def build_accession_to_fasta_manifest(
     package_dir: Path,
     out_manifest: Path,
     logger,
+    local_assemblies: Optional[Dict[str, Tuple[Path, int]]] = None,
 ) -> None:
     """
-    Parse `dataset_catalog.json` inside `package_dir/ncbi_dataset/data/` and write a
-    3-column TSV (`clean_ncbi_accession`, `fasta_path`, `uncompressed_bytes`).
-
-    WHY:
-    An assembly package in NCBI Datasets can occasionally include multiple sequence files
-    (e.g. separate chromosome/plasmid/unplaced files or RNA/protein files). Selecting the
-    largest `GENOMIC_NUCLEOTIDE_FASTA` entry per accession guarantees we pick the primary
-    genomic assembly file (`*_genomic.fna`).
+    Parse `dataset_catalog.json` inside `package_dir/ncbi_dataset/data/` and merge with any
+    locally-provided assemblies, writing a 3-column TSV:
+    (`clean_ncbi_accession`, `fasta_path`, `uncompressed_bytes`).
     """
     catalog_path = package_dir / "ncbi_dataset" / "data" / "dataset_catalog.json"
-    if not catalog_path.is_file():
+    rows: List[Tuple[str, str, int]] = []
+    seen_accs: Set[str] = set()
+
+    if catalog_path.is_file():
+        with open(catalog_path, "r", encoding="utf-8") as fh:
+            catalog = json.load(fh)
+
+        for item in catalog.get("assemblies", []):
+            acc = item.get("accession")
+            if not acc:
+                continue
+            genomic_files = [
+                f for f in item.get("files", [])
+                if f.get("fileType") == "GENOMIC_NUCLEOTIDE_FASTA"
+            ]
+            if not genomic_files:
+                logger.warning(f"No GENOMIC_NUCLEOTIDE_FASTA listed in catalog for accession {acc}")
+                continue
+            genomic_files.sort(key=lambda f: int(f.get("uncompressedLengthBytes") or 0))
+            largest = genomic_files[-1]
+            rel_path = largest["filePath"]
+            abs_fasta = (package_dir / "ncbi_dataset" / "data" / rel_path).resolve()
+            size_bytes = int(largest.get("uncompressedLengthBytes") or (abs_fasta.stat().st_size if abs_fasta.is_file() else 0))
+            if not abs_fasta.is_file():
+                raise FileNotFoundError(f"Catalog FASTA file missing on disk for {acc}: {abs_fasta}")
+            rows.append((acc, str(abs_fasta), size_bytes))
+            seen_accs.add(acc)
+    elif not local_assemblies:
         raise FileNotFoundError(f"dataset_catalog.json not found at {catalog_path}")
 
-    with open(catalog_path, "r", encoding="utf-8") as fh:
-        catalog = json.load(fh)
+    # Merge locally provided reference assemblies
+    if local_assemblies:
+        for acc, (lfp, size_bytes) in local_assemblies.items():
+            if acc not in seen_accs:
+                rows.append((acc, str(lfp.resolve()), size_bytes))
+                seen_accs.add(acc)
+                logger.info(f"Added local assembly record: {acc} -> {lfp} ({size_bytes:,} bytes)")
 
-    rows: List[Tuple[str, str, int]] = []
-    for item in catalog.get("assemblies", []):
-        acc = item.get("accession")
-        if not acc:
-            continue
-        genomic_files = [
-            f for f in item.get("files", [])
-            if f.get("fileType") == "GENOMIC_NUCLEOTIDE_FASTA"
-        ]
-        if not genomic_files:
-            logger.warning(f"No GENOMIC_NUCLEOTIDE_FASTA listed in catalog for accession {acc}")
-            continue
-        genomic_files.sort(key=lambda f: int(f.get("uncompressedLengthBytes") or 0))
-        largest = genomic_files[-1]
-        rel_path = largest["filePath"]
-        abs_fasta = (package_dir / "ncbi_dataset" / "data" / rel_path).resolve()
-        size_bytes = int(largest.get("uncompressedLengthBytes") or (abs_fasta.stat().st_size if abs_fasta.is_file() else 0))
-        if not abs_fasta.is_file():
-            raise FileNotFoundError(f"Catalog FASTA file missing on disk for {acc}: {abs_fasta}")
-        rows.append((acc, str(abs_fasta), size_bytes))
-
+    rows.sort(key=lambda r: r[0])
     out_manifest.parent.mkdir(parents=True, exist_ok=True)
     with open(out_manifest, "w", encoding="utf-8", newline="") as out_fh:
         writer = csv.writer(out_fh, delimiter="\t")
@@ -221,7 +230,7 @@ def build_accession_to_fasta_manifest(
         for r in rows:
             writer.writerow(r)
 
-    logger.info(f"Wrote {len(rows)} rehydrated assembly FASTA paths to {out_manifest}")
+    logger.info(f"Wrote {len(rows)} assembly FASTA paths to {out_manifest}")
 
 
 def main() -> None:
@@ -232,6 +241,7 @@ def main() -> None:
     parser.add_argument("--work-dir", required=True, help="Directory for dehydrated.zip and download_dir")
     parser.add_argument("--out-manifest", required=True, help="Output TSV: accession_to_fasta.tsv")
     parser.add_argument("--out-flag", required=True, help="Output completion flag file")
+    parser.add_argument("--local-assemblies-dir", default="input/local_assemblies", help="Directory containing locally-provided genome FASTAs")
     parser.add_argument("--max-attempts", type=int, default=5, help="Max rehydration attempts")
     parser.add_argument("--threads", type=int, default=16, help="Worker threads for rehydration & MD5 checks")
     parser.add_argument("--api-key", default="", help="Optional NCBI API key")
@@ -261,54 +271,81 @@ def main() -> None:
         out_flag.touch()
         return
 
+    local_dir = Path(args.local_assemblies_dir) if args.local_assemblies_dir else None
+    local_assemblies: Dict[str, Tuple[Path, int]] = {}
+    for acc in accessions:
+        lfp = find_local_assembly(acc, local_dir)
+        if lfp:
+            local_assemblies[acc] = (lfp, lfp.stat().st_size)
+            logger.info(
+                f"Accession {acc} found in local assemblies dir: {lfp} ({lfp.stat().st_size:,} bytes). Skipping NCBI download."
+            )
+
+    accs_to_download = [acc for acc in accessions if acc not in local_assemblies]
+
     work_dir = Path(args.work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
     dehydrated_zip = work_dir / "dehydrated.zip"
     package_dir = work_dir / "download_dir"
 
-    # Clean stale partial download dir if re-running from scratch
-    if package_dir.exists():
-        shutil.rmtree(package_dir)
-    if dehydrated_zip.exists():
-        dehydrated_zip.unlink()
+    if accs_to_download:
+        # Clean stale partial download dir if re-running from scratch
+        if package_dir.exists():
+            shutil.rmtree(package_dir)
+        if dehydrated_zip.exists():
+            dehydrated_zip.unlink()
 
-    dl_cmd = [
-        "datasets",
-        "download",
-        "genome",
-        "accession",
-        "--dehydrated",
-        "--inputfile",
-        str(acc_file),
-        "--no-progressbar",
-        "--filename",
-        str(dehydrated_zip),
-    ]
-    if api_key:
-        dl_cmd.extend(["--api-key", api_key])
+        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as tf:
+            for acc in accs_to_download:
+                tf.write(f"{acc}\n")
+            dl_acc_file = tf.name
 
-    logger.info(f"Downloading dehydrated NCBI package for {len(accessions)} accession(s)...")
-    if not run_cmd(dl_cmd, logger):
-        sys.exit(1)
+        try:
+            dl_cmd = [
+                "datasets",
+                "download",
+                "genome",
+                "accession",
+                "--dehydrated",
+                "--inputfile",
+                dl_acc_file,
+                "--no-progressbar",
+                "--filename",
+                str(dehydrated_zip),
+            ]
+            if api_key:
+                dl_cmd.extend(["--api-key", api_key])
 
-    logger.info(f"Extracting {dehydrated_zip} to {package_dir} ...")
-    with zipfile.ZipFile(dehydrated_zip, "r") as zf:
-        zf.extractall(package_dir)
+            logger.info(f"Downloading dehydrated NCBI package for {len(accs_to_download)} accession(s)...")
+            if not run_cmd(dl_cmd, logger):
+                sys.exit(1)
 
-    # Remove dehydrated.zip once extracted to save space
-    if dehydrated_zip.exists():
-        dehydrated_zip.unlink()
+            logger.info(f"Extracting {dehydrated_zip} to {package_dir} ...")
+            with zipfile.ZipFile(dehydrated_zip, "r") as zf:
+                zf.extractall(package_dir)
 
-    if not rehydrate_with_md5_retries(
-        package_dir=package_dir,
-        max_attempts=args.max_attempts,
-        threads=args.threads,
-        api_key=api_key,
-        logger=logger,
-    ):
-        sys.exit(1)
+            # Remove dehydrated.zip once extracted to save space
+            if dehydrated_zip.exists():
+                dehydrated_zip.unlink()
 
-    build_accession_to_fasta_manifest(package_dir, out_manifest, logger)
+            if not rehydrate_with_md5_retries(
+                package_dir=package_dir,
+                max_attempts=args.max_attempts,
+                threads=args.threads,
+                api_key=api_key,
+                logger=logger,
+            ):
+                sys.exit(1)
+        finally:
+            try:
+                os.unlink(dl_acc_file)
+            except OSError:
+                pass
+    else:
+        logger.info(f"All {len(accessions)} accession(s) are locally provided. Skipping NCBI Datasets download.")
+        package_dir.mkdir(parents=True, exist_ok=True)
+
+    build_accession_to_fasta_manifest(package_dir, out_manifest, logger, local_assemblies=local_assemblies)
     out_flag.touch()
     logger.info("Bulk download and rehydration completed successfully.")
 

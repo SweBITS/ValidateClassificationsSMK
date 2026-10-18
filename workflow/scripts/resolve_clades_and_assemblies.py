@@ -63,6 +63,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common_ledger import (
     ValidationStatus,
     clean_ncbi_accession,
+    find_local_assembly,
     sanitize_species_slug,
     setup_logger,
 )
@@ -348,11 +349,13 @@ def main() -> None:
     parser.add_argument("--out-accessions", required=True, help="Output TXT: selected_accessions.txt for NCBI datasets")
     parser.add_argument("--out-clade-map", required=True, help="Output TSV: descendant_taxid -> target_t_id mapping for Stage 0Passed species")
     parser.add_argument("--out-weekly-dir", required=True, help="Output directory for per-species and combined 516-week raw read counts")
+    parser.add_argument("--local-assemblies-dir", default="input/local_assemblies", help="Directory containing locally-provided genome FASTAs")
     parser.add_argument("--log", default=None, help="Log file path")
     args = parser.parse_args()
 
     logger = setup_logger("resolve_clades_and_assemblies", args.log)
     force_set: Set[int] = set(args.force_include_taxids or [])
+    local_assemblies_dir = Path(args.local_assemblies_dir) if args.local_assemblies_dir else None
 
     # 1. Load target species
     targets = load_targets(Path(args.targets), logger)
@@ -608,11 +611,20 @@ def main() -> None:
             if not is_organellar_row(r) and r.get("a_status", "").strip().lower() == "current"
         ]
 
-        # Partition nuclear_manifest_rows into live-available (with GCF->GCA fallback) vs. suppressed on NCBI
+        # Partition nuclear_manifest_rows into live-available (with GCF->GCA fallback and local assemblies) vs. suppressed on NCBI
         nuclear_current_rows: List[Dict[str, str]] = []
         suppressed_details: List[str] = []
         for r in nuclear_manifest_rows:
             c_acc = clean_ncbi_accession(r.get("a_accession", ""))
+            local_fp = find_local_assembly(c_acc, local_assemblies_dir)
+            if local_fp:
+                r_copy = dict(r)
+                r_copy["_local_path"] = str(local_fp)
+                nuclear_current_rows.append(r_copy)
+                logger.info(
+                    f"TaxID {tid} ({sci_name}): candidate assembly {c_acc} is locally provided at {local_fp}"
+                )
+                continue
             if live_ncbi_meta:
                 m_entry = live_ncbi_meta.get(c_acc)
                 ncbi_st = m_entry["status"] if m_entry else "missing_on_ncbi"
@@ -661,6 +673,7 @@ def main() -> None:
         elif override_acc:
             # Manual user override from config/targets.tsv bypasses database_manifest.tsv selection
             c_ov = clean_ncbi_accession(override_acc)
+            local_fp = find_local_assembly(c_ov, local_assemblies_dir)
             ov_meta = live_ncbi_meta.get(c_ov) if live_ncbi_meta else None
             ov_st = ov_meta["status"] if ov_meta else ("unknown" if not live_ncbi_meta else "missing_on_ncbi")
             ov_rsn = ov_meta["reason"] if ov_meta else "not returned by NCBI datasets"
@@ -668,7 +681,13 @@ def main() -> None:
             resolved_ov_acc = c_ov
             ov_sel_reason = "manual_override"
 
-            if live_ncbi_meta and ov_st in {"suppressed", "withdrawn", "retired", "missing_on_ncbi"}:
+            if local_fp:
+                resolved_ov_acc = c_ov
+                ov_sel_reason = f"manual_override+local_assembly({local_fp.name})"
+                logger.info(
+                    f"TaxID {tid} ({sci_name}): manual override {c_ov} is locally provided at {local_fp}"
+                )
+            elif live_ncbi_meta and ov_st in {"suppressed", "withdrawn", "retired", "missing_on_ncbi"}:
                 gca_equiv = _find_live_gca_for_suppressed_gcf(c_ov)
                 if gca_equiv:
                     resolved_ov_acc = gca_equiv
@@ -759,6 +778,9 @@ def main() -> None:
             fb_note = chosen_row.get("_fallback_note", "")
             if fb_note:
                 sel_reason = f"{sel_reason}+{fb_note}"
+            fb_local = chosen_row.get("_local_path", "")
+            if fb_local:
+                sel_reason = f"{sel_reason}+local_assembly({Path(fb_local).name})"
             chosen_acc = chosen_row.get("a_accession", "").strip()
             clean_acc = clean_ncbi_accession(chosen_acc)
             chosen_taxid = chosen_row.get("t_id", "").strip()

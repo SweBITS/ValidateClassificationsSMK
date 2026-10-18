@@ -58,7 +58,8 @@ rule resolve_clades_and_assemblies:
         min_reads = config.get("min_total_reads", 1000),
         force_taxids = " ".join(str(x) for x in config.get("force_include_taxids", [])),
         seed = config.get("random_seed", 42),
-        weekly_dir = "results/01_inputs/raw_weekly_counts"
+        weekly_dir = "results/01_inputs/raw_weekly_counts",
+        local_assemblies = config.get("local_assemblies_dir", "input/local_assemblies")
     log:
         "logs/00_preflight/resolve_clades_and_assemblies.log"
     benchmark:
@@ -81,6 +82,7 @@ rule resolve_clades_and_assemblies:
             --min-total-reads {params.min_reads} \
             --force-include-taxids {params.force_taxids} \
             --random-seed {params.seed} \
+            --local-assemblies-dir {params.local_assemblies} \
             --out-ledger {output.ledger} \
             --out-accessions {output.accessions} \
             --out-clade-map {output.clade_map} \
@@ -104,6 +106,7 @@ rule download_and_rehydrate_assemblies:
     params:
         script = str(SCRIPTS_DIR / "rehydrate_assemblies.py"),
         work_dir = "results/01_inputs/ncbi_datasets",
+        local_assemblies = config.get("local_assemblies_dir", "input/local_assemblies"),
         max_attempts = config.get("rehydrate_max_attempts", 5),
         api_key = config.get("ncbi_api_key", "")
     log:
@@ -123,6 +126,7 @@ rule download_and_rehydrate_assemblies:
         python {params.script} \
             --accessions-file {input.accessions} \
             --work-dir {params.work_dir} \
+            --local-assemblies-dir {params.local_assemblies} \
             --out-manifest {output.manifest} \
             --out-flag {output.flag} \
             --max-attempts {params.max_attempts} \

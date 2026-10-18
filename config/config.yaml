@@ -18,6 +18,7 @@ database_manifest: "config/manifests/master_db_2025_manifest.tsv.gz"
 
 joltax_cache_dir: "/proj/nobackup/snic2019-35-73/private/daniel/98-MISC/joltax_cache/master_db_2025"
 merged_canonical_counts_tsv: "input/merged_reports/lj_stringent_canonical_counts.tsv.gz"
+local_assemblies_dir: "input/local_assemblies"
 
 # Kraken 2 Database & Custom SweBITS Binary
 # Why we use the custom SweBITS binary: our 516 metagenomic samples were classified
