@@ -19,3 +19,4 @@ default-resources:
 set-resources:
   stream_kraken_cr:
     constraint: "largemem"
+    runtime: "30h"

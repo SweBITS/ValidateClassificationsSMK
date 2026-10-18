@@ -51,7 +51,7 @@ rule stream_kraken_cr:
     retries: 0
     resources:
         mem_mb = int(RES_CFG.get("stream_kraken_cr", {}).get("mem_mb", 2800000)),
-        runtime = f"{int(RES_CFG.get('stream_kraken_cr', {}).get('runtime_min', 720))}m",
+        runtime = f"{int(RES_CFG.get('stream_kraken_cr', {}).get('runtime_min', 1800))}m",
         cpus_per_task = get_threads("stream_kraken_cr", 72),
         constraint = RES_CFG.get("stream_kraken_cr", {}).get("constraint", "largemem")
     shell:

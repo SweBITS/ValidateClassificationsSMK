@@ -115,7 +115,7 @@ resources:
   extract_sample_reads:
     threads: 4
     mem_mb: 8000               # Mean RSS = 190 MB; scales geometrically up to >39 GB on aphid bloom samples
-    runtime_min: 45
+    runtime_min: 60
   merge_species_fastq:
     threads: 1
     mem_mb: 2000               # Pure RFC 1952 cat; Max RSS = 15 MB, Max time = 45s
@@ -123,7 +123,7 @@ resources:
   stream_kraken_cr:            # Single-pass FIFO rule on cpu_largemem (retries: 0)
     threads: 72
     mem_mb: 2800000
-    runtime_min: 720
+    runtime_min: 1800          # Scaled for 44 species (~24.3 Gbp / ~243M windows; projected ~16h + headroom)
     constraint: "largemem"
   build_cr_bins:
     threads: 1
