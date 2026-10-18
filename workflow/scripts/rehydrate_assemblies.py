@@ -274,8 +274,9 @@ def main() -> None:
 
     local_dir = Path(args.local_assemblies_dir) if args.local_assemblies_dir else None
     local_assemblies: Dict[str, Tuple[Path, int]] = {}
+    accessions_set: Set[str] = set(accessions)
 
-    # Check targets.tsv for any species explicitly configured with a local genome filename/path
+    # Check targets.tsv for any Stage 0 passing species explicitly configured with a local genome filename/path
     if args.targets and Path(args.targets).is_file():
         targets_file = Path(args.targets)
         with open(targets_file, "r", encoding="utf-8") as tfh:
@@ -289,11 +290,12 @@ def main() -> None:
                     lfp = resolve_local_genome_file(raw_ov, local_dir)
                     if lfp:
                         clean_acc = extract_accession_from_override(raw_ov, lfp)
-                        local_assemblies[clean_acc] = (lfp, lfp.stat().st_size)
-                        logger.info(
-                            f"Target TaxID {row.get('t_id')} ({row.get('t_species', '')}) specifies local genome file "
-                            f"{lfp.name} ({lfp.stat().st_size:,} bytes). Skipping NCBI download for {clean_acc}."
-                        )
+                        if clean_acc in accessions_set:
+                            local_assemblies[clean_acc] = (lfp, lfp.stat().st_size)
+                            logger.info(
+                                f"Target TaxID {row.get('t_id')} ({row.get('t_species', '')}) specifies local genome file "
+                                f"{lfp.name} ({lfp.stat().st_size:,} bytes). Skipping NCBI download for {clean_acc}."
+                            )
 
     accs_to_download = [acc for acc in accessions if acc not in local_assemblies]
 

@@ -182,12 +182,12 @@ def extract_and_demux_pair(
     for rtids in read_to_targets.values():
         present_tids.update(rtids)
 
-    # Create empty .fq.gz files for species with 0 reads in this sample
+    # Remove any stale chunk files for species with 0 reads in this sample (avoiding 45,000+ empty 20-byte gzip inodes on Lustre)
     for tid in active_tids:
-        out_fp = out_dir / f"{sample_id}_taxID-{tid}_{pair_label}.fq.gz"
         if tid not in present_tids or not read_to_targets:
-            with gzip.open(out_fp, "wb", compresslevel=1):
-                pass
+            out_fp = out_dir / f"{sample_id}_taxID-{tid}_{pair_label}.fq.gz"
+            if out_fp.exists():
+                out_fp.unlink()
 
     if not read_to_targets or not present_tids:
         return counts_per_tid

@@ -143,6 +143,19 @@ def sample_id_to_year_week(sample_id: str) -> Optional[str]:
     return None
 
 
+NCBI_ACCESSION_RE = re.compile(r"^GC[AF]_\d+\.\d+$")
+
+
+def is_valid_ncbi_accession(raw_val: str) -> bool:
+    """
+    Return True if `raw_val` (after stripping optional 'RS_'/'GB_' prefixes) is a
+    well-formed NCBI Assembly accession of the form 'GCA_<digits>.<version>' or 'GCF_<digits>.<version>'.
+    """
+    if not raw_val:
+        return False
+    return bool(NCBI_ACCESSION_RE.match(clean_ncbi_accession(raw_val)))
+
+
 def resolve_local_genome_file(raw_val: str, local_dir: Optional[Path] = None) -> Optional[Path]:
     """
     Check if `raw_val` refers to a locally provided genome FASTA file.
@@ -182,3 +195,4 @@ def extract_accession_from_override(raw_val: str, filepath: Optional[Path] = Non
             return m2.group(1)
         return filepath.name.split(".")[0]
     return clean_ncbi_accession(val)
+

@@ -64,6 +64,7 @@ from common_ledger import (
     ValidationStatus,
     clean_ncbi_accession,
     extract_accession_from_override,
+    is_valid_ncbi_accession,
     resolve_local_genome_file,
     sanitize_species_slug,
     setup_logger,
@@ -458,18 +459,26 @@ def main() -> None:
         tid = item["t_id"]
         ov_acc = item.get("override_accession", "")
         if ov_acc:
-            c_ov = clean_ncbi_accession(ov_acc)
-            candidate_clean_accs.add(c_ov)
-            if c_ov.startswith("GCF_"):
-                candidate_clean_accs.add("GCA_" + c_ov[4:])
+            local_fp = resolve_local_genome_file(ov_acc, local_assemblies_dir)
+            if local_fp:
+                ext_acc = extract_accession_from_override(ov_acc, local_fp)
+                if is_valid_ncbi_accession(ext_acc):
+                    candidate_clean_accs.add(ext_acc)
+            else:
+                c_ov = clean_ncbi_accession(ov_acc)
+                if is_valid_ncbi_accession(c_ov):
+                    candidate_clean_accs.add(c_ov)
+                    if c_ov.startswith("GCF_"):
+                        candidate_clean_accs.add("GCA_" + c_ov[4:])
         for r in clade_assemblies.get(tid, []):
             if not is_organellar_row(r) and r.get("a_status", "").strip().lower() == "current":
                 raw_a = (r.get("a_accession") or "").strip()
                 if raw_a:
                     c_a = clean_ncbi_accession(raw_a)
-                    candidate_clean_accs.add(c_a)
-                    if c_a.startswith("GCF_"):
-                        candidate_clean_accs.add("GCA_" + c_a[4:])
+                    if is_valid_ncbi_accession(c_a):
+                        candidate_clean_accs.add(c_a)
+                        if c_a.startswith("GCF_"):
+                            candidate_clean_accs.add("GCA_" + c_a[4:])
 
     live_ncbi_meta: Dict[str, Dict[str, Any]] = {}
     if candidate_clean_accs:
@@ -675,6 +684,12 @@ def main() -> None:
                     f"TaxID {tid} ({sci_name}): manual override specifies local genome file {local_fp} "
                     f"(accession identifier: {resolved_ov_acc})"
                 )
+            elif not is_valid_ncbi_accession(override_acc):
+                resolved_ov_acc = ""
+                ov_meta = None
+                ov_st = "local_file_not_found"
+                ov_rsn = f"file not found directly or under {local_assemblies_dir}"
+                ov_sel_reason = "NA"
             else:
                 c_ov = clean_ncbi_accession(override_acc)
                 ov_meta = live_ncbi_meta.get(c_ov) if live_ncbi_meta else None
@@ -700,10 +715,16 @@ def main() -> None:
 
             if not resolved_ov_acc:
                 status = ValidationStatus.EXCLUDED_NCBI_UNAVAILABLE
-                reason = (
-                    f"Manual override assembly {override_acc} is unavailable on live NCBI "
-                    f"[status={ov_st}: {ov_rsn}] and no live GCA equivalent exists"
-                )
+                if ov_st == "local_file_not_found":
+                    reason = (
+                        f"Local override genome file '{override_acc}' was not found on disk "
+                        f"({ov_rsn})"
+                    )
+                else:
+                    reason = (
+                        f"Manual override assembly {override_acc} is unavailable on live NCBI "
+                        f"[status={ov_st}: {ov_rsn}] and no live GCA equivalent exists"
+                    )
             else:
                 # Also check if manifest has metadata for this accession as fallback
                 manifest_match = next(
