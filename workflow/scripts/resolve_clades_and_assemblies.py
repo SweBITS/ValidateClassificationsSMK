@@ -45,8 +45,13 @@ species in `config/targets.tsv`:
 import argparse
 import csv
 import gzip
+import json
+import os
 import random
+import shutil
+import subprocess
 import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -421,7 +426,84 @@ def main() -> None:
                     if rtid in cset:
                         clade_assemblies[root_tid].append(row)
 
-    # 5. Evaluate Pre-Flight Gate 1, Gate 2, and Best-Assembly Selection Cascade
+    # 4b. Query live NCBI Datasets CLI for real-time assembly_status of all candidate nuclear assemblies
+    # Why we query live NCBI rather than trusting `a_status` in `database_manifest.tsv`:
+    # `database_manifest.tsv` is a static snapshot from when the Kraken 2 database was built.
+    # Assemblies that were `current` at build time may have subsequently been suppressed or
+    # removed at the submitter's request on ENA/NCBI (e.g. GCA_965250375.1 for Columba palumbus),
+    # in which case NCBI Datasets omits their FASTA files. Filtering out suppressed candidates
+    # BEFORE running the 4-tier selection cascade allows clades with multiple assemblies to
+    # automatically fall back to another live assembly in the clade, or cleanly flag the clade
+    # as EXCLUDED_NCBI_UNAVAILABLE if all candidates in the clade have been suppressed.
+    candidate_clean_accs: Set[str] = set()
+    for item in targets:
+        tid = item["t_id"]
+        for r in clade_assemblies.get(tid, []):
+            if not is_organellar_row(r) and r.get("a_status", "").strip().lower() == "current":
+                raw_a = (r.get("a_accession") or "").strip()
+                if raw_a:
+                    candidate_clean_accs.add(clean_ncbi_accession(raw_a))
+
+    live_ncbi_status: Dict[str, Tuple[str, str]] = {}
+    if candidate_clean_accs:
+        datasets_bin = shutil.which("datasets")
+        if not datasets_bin:
+            # Fallback search in local .snakemake/conda environments if running before env rebuild
+            for cand_bin in Path(".snakemake/conda").glob("*/bin/datasets"):
+                if cand_bin.is_file() and os.access(cand_bin, os.X_OK):
+                    datasets_bin = str(cand_bin)
+                    break
+
+        if datasets_bin:
+            logger.info(
+                f"Querying live NCBI assembly status via `{datasets_bin} summary genome accession` "
+                f"for {len(candidate_clean_accs)} candidate nuclear assembly(ies)..."
+            )
+            with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as tf:
+                for acc in sorted(candidate_clean_accs):
+                    tf.write(f"{acc}\n")
+                tmp_acc_path = tf.name
+            try:
+                cmd = [
+                    datasets_bin, "summary", "genome", "accession",
+                    "--inputfile", tmp_acc_path,
+                    "--as-json-lines",
+                ]
+                api_key = os.environ.get("NCBI_API_KEY", "").strip()
+                if api_key:
+                    cmd.extend(["--api-key", api_key])
+                proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+                if proc.returncode == 0 and proc.stdout:
+                    for line in proc.stdout.splitlines():
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            rec = json.loads(line)
+                            acc = rec.get("accession") or rec.get("current_accession") or ""
+                            ainfo = rec.get("assembly_info", {})
+                            st = (ainfo.get("assembly_status") or "unknown").strip().lower()
+                            rsn = (ainfo.get("suppression_reason") or "").strip()
+                            if acc:
+                                live_ncbi_status[acc] = (st, rsn)
+                        except Exception:
+                            pass
+                    logger.info(
+                        f"Received live NCBI status for {len(live_ncbi_status)}/{len(candidate_clean_accs)} candidate assembly(ies)."
+                    )
+                else:
+                    logger.warning(
+                        f"`datasets summary genome accession` returned code {proc.returncode}: {proc.stderr.strip()}"
+                    )
+            finally:
+                try:
+                    os.unlink(tmp_acc_path)
+                except OSError:
+                    pass
+        else:
+            logger.warning("`datasets` binary not found on PATH; skipping live NCBI pre-check in Stage 0.")
+
+    # 5. Evaluate Pre-Flight Gate 1, Gate 2, Live NCBI Availability, and Best-Assembly Selection Cascade
     Path(args.out_ledger).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out_accessions).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out_clade_map).parent.mkdir(parents=True, exist_ok=True)
@@ -443,10 +525,24 @@ def main() -> None:
 
         all_rows = clade_assemblies.get(tid, [])
         org_rows = [r for r in all_rows if is_organellar_row(r)]
-        nuclear_current_rows = [
+        nuclear_manifest_rows = [
             r for r in all_rows
             if not is_organellar_row(r) and r.get("a_status", "").strip().lower() == "current"
         ]
+
+        # Partition nuclear_manifest_rows into live-available vs. suppressed on NCBI
+        nuclear_current_rows: List[Dict[str, str]] = []
+        suppressed_details: List[str] = []
+        for r in nuclear_manifest_rows:
+            c_acc = clean_ncbi_accession(r.get("a_accession", ""))
+            if live_ncbi_status:
+                ncbi_st, ncbi_rsn = live_ncbi_status.get(c_acc, ("missing_on_ncbi", "not returned by NCBI datasets"))
+                if ncbi_st in {"suppressed", "withdrawn", "retired", "missing_on_ncbi"}:
+                    detail_str = f"{c_acc} [status={ncbi_st}" + (f": {ncbi_rsn}]" if ncbi_rsn else "]")
+                    suppressed_details.append(detail_str)
+                    logger.warning(f"TaxID {tid} ({sci_name}): excluding candidate assembly {detail_str}")
+                    continue
+            nuclear_current_rows.append(r)
 
         # Default empty selection fields
         chosen_acc = "NA"
@@ -471,17 +567,23 @@ def main() -> None:
         elif not all_rows:
             status = ValidationStatus.EXCLUDED_NO_ASSEMBLY_IN_DB
             reason = f"No assemblies found in database_manifest.tsv for clade of TaxID {tid} ({len(info['clade_list'])} taxa)"
-        elif not nuclear_current_rows and org_rows:
+        elif not nuclear_manifest_rows and org_rows:
             status = ValidationStatus.EXCLUDED_ORGANELLAR_ONLY
             org_summary = ", ".join(
                 f"{r.get('a_accession')} ({r.get('a_organelle_type') or 'organelle'})" for r in org_rows[:5]
             )
             reason = f"Clade contains only organellar assembly/assemblies ({len(org_rows)} total: {org_summary}) and no nuclear genome"
-        elif not nuclear_current_rows:
+        elif not nuclear_manifest_rows:
             status = ValidationStatus.EXCLUDED_NO_ASSEMBLY_IN_DB
             reason = f"Clade has {len(all_rows)} manifest row(s) but 0 with a_status=='current' and non-organellar"
+        elif not nuclear_current_rows and suppressed_details:
+            status = ValidationStatus.EXCLUDED_NCBI_UNAVAILABLE
+            reason = (
+                f"All {len(nuclear_manifest_rows)} candidate nuclear assembly(ies) in clade are "
+                f"suppressed/unavailable on live NCBI: {'; '.join(suppressed_details)}"
+            )
         else:
-            # Passed both Pre-Flight Gate 1 and Gate 2 -> Select single best assembly!
+            # Passed Pre-Flight Gate 1, Gate 2, and live NCBI availability -> Select single best assembly!
             chosen_row, sel_reason = select_best_assembly_for_clade(
                 tid, nuclear_current_rows, random_seed=args.random_seed
             )
@@ -496,9 +598,10 @@ def main() -> None:
 
             status = ValidationStatus.PASSED_STAGE0
             forced_note = " (force_included)" if (total_reads < args.min_total_reads and tid in force_set) else ""
+            supp_note = f"; skipped {len(suppressed_details)} suppressed candidate(s)" if suppressed_details else ""
             reason = (
                 f"Passed Stage 0 ({total_reads:,} clade reads across {n_weeks_present}/516 weeks{forced_note}; "
-                f"selected {chosen_acc} [{chosen_level}, {chosen_refseq}] via {sel_reason})"
+                f"selected {chosen_acc} [{chosen_level}, {chosen_refseq}] via {sel_reason}{supp_note})"
             )
 
             if clean_acc not in seen_accessions:

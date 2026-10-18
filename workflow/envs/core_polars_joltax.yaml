@@ -16,3 +16,4 @@ dependencies:
   - plotly>=6.0.1
   - jinja2>=3.1.5
   - pyyaml>=6.0.2
+  - ncbi-datasets-cli>=18.39.0
