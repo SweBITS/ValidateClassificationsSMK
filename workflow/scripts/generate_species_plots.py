@@ -51,25 +51,25 @@ from common_ledger import ValidationStatus, setup_logger
 
 STATUS_PALETTE: Dict[str, Dict[str, str]] = {
     ValidationStatus.VALIDATED_CLEAN: {
-        "primary": "#059669",   # Emerald green
+        "primary": "#047857",   # Deeper forest green
         "fill": "#a7f3d0",
         "badge_bg": "#d1fae5",
-        "badge_fg": "#065f46",
+        "badge_fg": "#064e3b",
     },
     ValidationStatus.VALIDATED_PRUNED: {
-        "primary": "#0d9488",   # Teal / sea green
-        "fill": "#99f6e4",
-        "badge_bg": "#ccfbf1",
-        "badge_fg": "#115e59",
+        "primary": "#10b981",   # Lighter emerald green
+        "fill": "#d1fae5",
+        "badge_bg": "#ecfdf5",
+        "badge_fg": "#047857",
     },
     ValidationStatus.FAILED_LOW_CORRELATION: {
-        "primary": "#e11d48",   # Rose red
-        "fill": "#fecdd3",
-        "badge_bg": "#ffe4e6",
-        "badge_fg": "#9f1239",
+        "primary": "#dc2626",   # Same red colour
+        "fill": "#fecaca",
+        "badge_bg": "#fee2e2",
+        "badge_fg": "#991b1b",
     },
     ValidationStatus.FAILED_LOW_OCCUPANCY: {
-        "primary": "#dc2626",   # Crimson red
+        "primary": "#dc2626",   # Same red colour
         "fill": "#fecaca",
         "badge_bg": "#fee2e2",
         "badge_fg": "#991b1b",
@@ -165,11 +165,11 @@ def main() -> None:
         2, 2,
         figure=fig,
         height_ratios=[1.0, 1.0],
-        width_ratios=[1.35, 1.0],
+        width_ratios=[1.60, 1.0],
         hspace=0.36,
-        wspace=0.25,
+        wspace=0.17,
         left=0.06,
-        right=0.96,
+        right=0.94,
         top=0.85,
         bottom=0.07,
     )
@@ -297,13 +297,10 @@ def main() -> None:
     ax_scatter.set_xlabel("Bin Classifiable Region Length (bp)", fontsize=9.5, color="#1e293b")
     ax_scatter.set_ylabel("Mapped eDNA Read Pairs", fontsize=9.5, color="#1e293b")
     ax_scatter.xaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{int(v):,}"))
-    # Headroom and adaptive legend placement to prevent covering outlier points (e.g. short-CR bin in Ilex)
+    # Headroom and fixed upper-left legend with decreased opacity so dots under it remain visible
     y_max_val = float(np.max(y_all)) if len(y_all) > 0 else 1.0
-    x_med_val = float(np.median(x_all)) if len(x_all) > 0 else 1.0
     ax_scatter.set_ylim(bottom=min(-0.02 * y_max_val, 0.0), top=y_max_val * 1.25)
-    upper_left_crowded = bool(np.any((x_all <= x_med_val) & (y_all > 0.40 * y_max_val)))
-    legend_loc = "upper right" if upper_left_crowded else "upper left"
-    ax_scatter.legend(loc=legend_loc, frameon=True, facecolor="white", framealpha=0.88, fontsize=8)
+    ax_scatter.legend(loc="upper left", frameon=True, facecolor="white", framealpha=0.50, fontsize=8)
 
     # ======================================================================== #
     # PANEL B: Dual-Trace Outlier Pruning Trajectory Curve
@@ -493,8 +490,10 @@ def main() -> None:
         loc="left",
         pad=8,
     )
+    ax_scatter_1to1.yaxis.tick_right()
+    ax_scatter_1to1.yaxis.set_label_position("right")
     ax_scatter_1to1.set_xlabel("Weekly Raw Kraken 2 Clade Reads", fontsize=9.5, color="#1e293b")
-    ax_scatter_1to1.set_ylabel("Weekly Validated Clean-Bin Reads", fontsize=9.5, color="#1e293b")
+    ax_scatter_1to1.set_ylabel("Weekly Validated Clean-Bin Reads", fontsize=9.5, color="#1e293b", labelpad=8)
     ax_scatter_1to1.xaxis.set_major_locator(mticker.MaxNLocator(nbins=5))
     ax_scatter_1to1.yaxis.set_major_locator(mticker.MaxNLocator(nbins=5))
     ax_scatter_1to1.xaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{int(v):,}"))

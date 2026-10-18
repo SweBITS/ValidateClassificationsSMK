@@ -15,21 +15,21 @@
 
       /* VALIDATED types: shades of green */
       --clean-bg: #d1fae5;
-      --clean-fg: #065f46;
-      --clean-border: #10b981;
+      --clean-fg: #064e3b;
+      --clean-border: #047857;
 
-      --pruned-bg: #ccfbf1;
-      --pruned-fg: #0f766e;
-      --pruned-border: #14b8a6;
+      --pruned-bg: #ecfdf5;
+      --pruned-fg: #047857;
+      --pruned-border: #10b981;
 
-      /* FAILED types: shades of red */
+      /* FAILED types: both use the same red color */
       --failed-occupancy-bg: #fee2e2;
       --failed-occupancy-fg: #991b1b;
-      --failed-occupancy-border: #ef4444;
+      --failed-occupancy-border: #dc2626;
 
-      --failed-corr-bg: #ffe4e6;
-      --failed-corr-fg: #9f1239;
-      --failed-corr-border: #f43f5e;
+      --failed-corr-bg: #fee2e2;
+      --failed-corr-fg: #991b1b;
+      --failed-corr-border: #dc2626;
 
       /* EXCLUDED / Missing data: shades of gray */
       --excluded-bg: #f1f5f9;
@@ -112,41 +112,30 @@
     }
     .kpi-sub { font-size: 0.82rem; color: var(--text-muted); }
 
-    /* Tooltip styles */
-    [data-tooltip] {
-      position: relative;
-    }
-    [data-tooltip]:hover::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      bottom: 125%;
-      left: 50%;
-      transform: translateX(-50%);
+    /* Floating Global Tooltip (immune to container and overflow clipping) */
+    .global-tooltip {
+      position: fixed;
+      display: none;
       background: #0f172a;
-      color: #f8fafc;
-      padding: 0.5rem 0.8rem;
+      color: #ffffff;
+      border: 1px solid #ffffff;
+      padding: 0.5rem 0.85rem;
       border-radius: 6px;
-      font-size: 0.77rem;
+      font-size: 0.78rem;
       font-weight: 400;
       line-height: 1.35;
-      white-space: normal;
-      width: max-content;
-      max-width: 300px;
-      z-index: 1000;
-      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.3);
+      max-width: 320px;
+      z-index: 999999;
       pointer-events: none;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
       text-align: center;
+      word-wrap: break-word;
+      transition: opacity 0.12s ease;
+      opacity: 0;
     }
-    [data-tooltip]:hover::before {
-      content: "";
-      position: absolute;
-      bottom: 110%;
-      left: 50%;
-      transform: translateX(-50%);
-      border: 6px solid transparent;
-      border-top-color: #0f172a;
-      z-index: 1000;
-      pointer-events: none;
+    .global-tooltip.visible {
+      display: block;
+      opacity: 1;
     }
 
     /* Section Cards */
@@ -526,28 +515,28 @@
         <div class="glossary-item clean">
           <div class="glossary-item-title">
             <span class="badge badge-VALIDATED_CLEAN">VALIDATED_CLEAN</span>
-            <span style="color:#065f46;">(Shade of Green)</span>
+            <span style="color:#064e3b; font-size:0.75rem; font-weight:600;">(Deep Green)</span>
           </div>
           <div><strong>Uniform genome-wide signal:</strong> Mapped eDNA reads track Classifiable Region length with initial Pearson \(R \ge 0.90\) and strictly positive slope (\(\beta_1 > 0\)) across all 100 bins with zero bins pruned. Confirms an authentic biological detection.</div>
         </div>
         <div class="glossary-item pruned">
           <div class="glossary-item-title">
             <span class="badge badge-VALIDATED_PRUNED">VALIDATED_PRUNED</span>
-            <span style="color:#0f766e;">(Shade of Green)</span>
+            <span style="color:#047857; font-size:0.75rem; font-weight:600;">(Lighter Green)</span>
           </div>
           <div><strong>Pruned biological validation:</strong> Reached \(R \ge 0.90\) and \(\beta_1 > 0\) after iteratively pruning \(\ge 1\) outlier bins (e.g. high-copy ribosomal arrays, mobile elements, or assembly contaminants) while retaining \(\ge 50\%\) of the total Classifiable Region sequence length.</div>
         </div>
         <div class="glossary-item occupancy">
           <div class="glossary-item-title">
             <span class="badge badge-FAILED_LOW_OCCUPANCY">FAILED_LOW_OCCUPANCY</span>
-            <span style="color:#991b1b;">(Shade of Red)</span>
+            <span style="color:#991b1b; font-size:0.75rem; font-weight:600;">(Red)</span>
           </div>
           <div><strong>Pre-regression occupancy gate failed:</strong> Less than 50% of the 100 bins contain \(\ge 1\) mapped read pair, or the initial slope is non-positive (\(\beta_1 \le 0\)). Characteristic of false-positive detections where reads pile into a few conserved locus spikes while the rest of the genome is empty.</div>
         </div>
         <div class="glossary-item correlation">
           <div class="glossary-item-title">
             <span class="badge badge-FAILED_LOW_CORRELATION">FAILED_LOW_CORRELATION</span>
-            <span style="color:#9f1239;">(Shade of Red)</span>
+            <span style="color:#991b1b; font-size:0.75rem; font-weight:600;">(Red)</span>
           </div>
           <div><strong>Correlation threshold not attained:</strong> Pruning reached the 50% CR sequence retention floor without reaching Pearson \(R \ge 0.90\) with a positive slope. The reads do not correlate linearly with classifiable genomic sequence.</div>
         </div>
@@ -811,6 +800,8 @@
     {% endif %}
   </div>
 
+  <div id="globalTooltip" class="global-tooltip" role="tooltip" aria-hidden="true"></div>
+
   <script>
     let currentGroup = 'ALL';
     let sortColIndex = -1;
@@ -953,6 +944,84 @@
       // 5. Re-filter
       filterTable();
     }
+
+    // Global Floating Tooltip System (avoids overflow/clipping inside tables and cards)
+    const tooltipEl = document.getElementById('globalTooltip');
+    let currentTooltipTarget = null;
+
+    function positionTooltip(target) {
+      if (!tooltipEl || !target) return;
+      const rect = target.getBoundingClientRect();
+      const tipWidth = tooltipEl.offsetWidth;
+      const tipHeight = tooltipEl.offsetHeight;
+
+      // Default: centered horizontally above element with 8px margin
+      let top = rect.top - tipHeight - 8;
+      let left = rect.left + (rect.width / 2) - (tipWidth / 2);
+
+      // If overflowing viewport top, flip below the target
+      if (top < 8) {
+        top = rect.bottom + 8;
+      }
+      // If still overflowing viewport bottom, clamp
+      if (top + tipHeight > window.innerHeight - 8) {
+        top = Math.max(8, window.innerHeight - tipHeight - 8);
+      }
+
+      // Horizontal edge clamping
+      if (left < 10) {
+        left = 10;
+      } else if (left + tipWidth > window.innerWidth - 10) {
+        left = Math.max(10, window.innerWidth - tipWidth - 10);
+      }
+
+      tooltipEl.style.top = `${top}px`;
+      tooltipEl.style.left = `${left}px`;
+    }
+
+    function showTooltip(target) {
+      const text = target.getAttribute('data-tooltip');
+      if (!text || !tooltipEl) return;
+      currentTooltipTarget = target;
+      tooltipEl.textContent = text;
+      tooltipEl.classList.add('visible');
+      positionTooltip(target);
+    }
+
+    function hideTooltip() {
+      if (!tooltipEl) return;
+      tooltipEl.classList.remove('visible');
+      currentTooltipTarget = null;
+    }
+
+    document.addEventListener('mouseover', function(e) {
+      const target = e.target.closest('[data-tooltip]');
+      if (target) {
+        showTooltip(target);
+      }
+    });
+
+    document.addEventListener('mouseout', function(e) {
+      const target = e.target.closest('[data-tooltip]');
+      if (target) {
+        if (e.relatedTarget && target.contains(e.relatedTarget)) {
+          return;
+        }
+        hideTooltip();
+      }
+    });
+
+    window.addEventListener('scroll', function() {
+      if (currentTooltipTarget) {
+        positionTooltip(currentTooltipTarget);
+      }
+    }, true);
+
+    window.addEventListener('resize', function() {
+      if (currentTooltipTarget) {
+        positionTooltip(currentTooltipTarget);
+      }
+    });
   </script>
 </body>
 </html>
