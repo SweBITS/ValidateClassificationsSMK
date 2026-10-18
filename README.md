@@ -45,6 +45,7 @@ ValidateClassificationsSMK/
 ├── input/                           # External inputs (git-ignored except .gitkeep)
 │   ├── database_manifest.tsv        # Kraken 2 reference assembly metadata manifest
 │   ├── classifications/             # 516 weekly per-read Kraken 2 files ({sample}.kraken2.gz)
+│   ├── fastq/                       # 516 weekly paired-end FASTQ files ({sample}_R{1,2}.fastq.gz)
 │   └── merged_reports/              # Merged weekly canonical counts (lj_stringent_canonical_counts.tsv.gz)
 ├── slurm/
 │   ├── hpc2n/config.yaml            # Battle-tested HPC2N Kebnekaise SLURM profile
