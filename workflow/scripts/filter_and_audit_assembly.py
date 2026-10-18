@@ -158,10 +158,31 @@ def main() -> None:
             if acc and fp:
                 acc_to_fasta[acc] = Path(fp)
 
+    # 2b. Optional: inspect NCBI assembly_data_report.jsonl for suppression reasons
+    ncbi_report_info: Dict[str, Tuple[str, str]] = {}
+    report_jsonl = Path(args.accession_manifest).parent / "download_dir" / "ncbi_dataset" / "data" / "assembly_data_report.jsonl"
+    if report_jsonl.is_file():
+        import json
+        with open(report_jsonl, "r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                    acc = rec.get("accession") or rec.get("currentAccession") or ""
+                    info = rec.get("assemblyInfo", {})
+                    status = info.get("assemblyStatus", "unknown")
+                    reason = info.get("suppressionReason", "")
+                    if acc:
+                        ncbi_report_info[acc] = (status, reason)
+                except Exception:
+                    pass
+
     refs_dir = Path(args.out_references_dir)
     refs_dir.mkdir(parents=True, exist_ok=True)
 
-    # 3. Build parallel tasks for all Stage 0 passing species
+    # 3. Build parallel tasks for all Stage 0 passing species whose FASTA is available from NCBI
     tasks: List[Tuple[int, str, Path, Path, Path, int]] = []
     for row in stage0_rows:
         if row["stage0_status"] != ValidationStatus.PASSED_STAGE0:
@@ -169,9 +190,12 @@ def main() -> None:
         tid = int(row["t_id"])
         clean_acc = row["clean_ncbi_accession"]
         if clean_acc not in acc_to_fasta:
-            raise FileNotFoundError(
-                f"Rehydrated FASTA not found in {args.accession_manifest} for TaxID {tid} ({clean_acc})"
+            ncbi_st, ncbi_rsn = ncbi_report_info.get(clean_acc, ("unavailable", "FASTA omitted by NCBI datasets"))
+            logger.warning(
+                f"Rehydrated FASTA not available from NCBI for TaxID {tid} ({clean_acc}): "
+                f"status={ncbi_st} {ncbi_rsn}"
             )
+            continue
         in_fasta = acc_to_fasta[clean_acc]
         out_fasta = refs_dir / f"{tid}.{clean_acc}.filtered.fna"
         out_lengths = refs_dir / f"{tid}.{clean_acc}.contig_lengths.tsv"
@@ -216,6 +240,33 @@ def main() -> None:
                 "discarded_bp_pct": 0.0,
                 "stage1_status": s0_status,
                 "stage1_reason": s0_reason,
+            })
+            continue
+
+        if tid not in stats_by_tid:
+            ncbi_st, ncbi_rsn = ncbi_report_info.get(clean_acc, ("unavailable", "FASTA omitted by NCBI datasets"))
+            detail = f"status={ncbi_st}" + (f" ({ncbi_rsn})" if ncbi_rsn else "")
+            s1_status = ValidationStatus.EXCLUDED_NCBI_UNAVAILABLE
+            s1_reason = f"Selected assembly {clean_acc} is unavailable for download on NCBI: {detail}"
+            logger.info(f"[{s1_status}] TaxID {tid} ({row['scientific_name']}): {s1_reason}")
+            audit_rows.append({
+                "t_id": tid,
+                "t_species": row["t_species"],
+                "scientific_name": row["scientific_name"],
+                "species_slug": row["species_slug"],
+                "chosen_accession": row["chosen_accession"],
+                "clean_ncbi_accession": clean_acc,
+                "chosen_assembly_taxid": row["chosen_assembly_taxid"],
+                "selection_reason": row["selection_reason"],
+                "raw_contig_count": 0,
+                "kept_contig_count": 0,
+                "discarded_contig_pct": 0.0,
+                "raw_assembly_bp": 0,
+                "kept_assembly_bp": 0,
+                "discarded_bp": 0,
+                "discarded_bp_pct": 0.0,
+                "stage1_status": s1_status,
+                "stage1_reason": s1_reason,
             })
             continue
 
