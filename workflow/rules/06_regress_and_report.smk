@@ -12,6 +12,8 @@ rule validate_and_regress_species:
     `all_cr_mapped_reads`, `validated_clean_bin_reads`).
     """
     input:
+        active_species = "results/00_ledger/active_species.tsv",
+        stage1_audit = "results/00_ledger/assembly_filtering_summary.tsv",
         bins_tsv = "results/02_classifiable_regions/{t_id}/{t_id}.bins_metadata.tsv",
         parquet = "results/03_mapping/{t_id}/{t_id}.passing_alignments.parquet",
         map_stats = "results/03_mapping/{t_id}/{t_id}.mapping_stats.tsv",
@@ -23,7 +25,7 @@ rule validate_and_regress_species:
         metrics_json = "results/04_validation/{t_id}_{species_slug}/{t_id}.validation_metrics.json"
     params:
         script = str(SCRIPTS_DIR / "validate_and_regress.py"),
-        species_name = lambda wc: get_active_species_map(wc)[str(wc.t_id)]["scientific_name"],
+        species_name = lambda wc: wc.species_slug.replace("_", " "),
         raw_weekly_tsv = lambda wc: f"results/01_inputs/raw_weekly_counts/{wc.t_id}.raw_weekly.tsv",
         min_occ_frac = config.get("min_occupied_bins_frac", 0.50),
         target_r = config.get("target_r", 0.90),
