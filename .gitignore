@@ -1,29 +1,28 @@
-# Ignore Snakemake working directory
+# ============================================================================ #
+# ValidateClassificationsSMK (v2) — Git Ignore Rules
+# ============================================================================ #
+
+# Snakemake state, Conda environments, and SLURM runtime metadata
 .snakemake/
+slurm-*.out
 
-# Ignore any input files...
-input/*
-input/fastq/*
-
-# ... but keep the filestructure
-!input/.gitkeep
-!input/fastq/
-!input/fastq/.gitkeep
-
-# Ignore output, log, and benchmark directories
+# Pipeline outputs, logs, and benchmarks
+results/
 output/
 logs/
 benchmarks/
 
-# Ignore anything user-related in the supporting_files folder...
-supporting_files/*
-supporting_files/genomes/*
+# Archived v1 runs and investigations
+archive/
 
-# ... but keep the filestructure and mapping spec. template
-!supporting_files/mapping_specification_TEMPLATE.tsv
-!supporting_files/genomes/
-!supporting_files/genomes/.gitkeep
+# External input files and links (keep input/.gitkeep)
+input/*
+!input/.gitkeep
 
-# Misc
-.vscode/*
-kraken_db/
+# Python & IDE caches
+__pycache__/
+*.py[cod]
+*$py.class
+.vscode/
+.idea/
+.DS_Store

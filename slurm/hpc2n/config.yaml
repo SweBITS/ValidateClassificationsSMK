@@ -17,5 +17,5 @@ default-resources:
 
 # -- Rule-Specific Resources (Overrides defaults) --
 set-resources:
-  classify_all_concatenated:
+  stream_kraken_cr:
     constraint: "largemem"

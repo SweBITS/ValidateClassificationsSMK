@@ -1,0 +1,129 @@
+# ============================================================================ #
+# ValidateClassificationsSMK (v2) — High-Throughput eDNA Validation Pipeline
+# ============================================================================ #
+# WHY THIS FILE EXISTS:
+# Centralizes all biological thresholds, statistical cutoffs, database paths,
+# and baseline SLURM resource allocations so users never have to edit Snakemake
+# rules or Python scripts directly.
+
+# --- 1. Core Inputs, Taxonomy & Database Paths --- #
+targets_tsv: "config/targets.tsv"
+database_manifest: "input/database_manifest.tsv"
+joltax_cache_dir: "/proj/nobackup/snic2019-35-73/private/daniel/98-MISC/joltax_cache/master_db_2025"
+merged_canonical_counts_tsv: "input/merged_reports/lj_stringent_canonical_counts.tsv.gz"
+
+# Kraken 2 Database & Custom SweBITS Binary
+# Why we use the custom SweBITS binary: our 516 metagenomic samples were classified
+# with kraken2_SweBiTS_MHG_intel (--confidence 0.1 --minimum-hit-groups 10). Matching
+# the exact binary, database, and parameters ensures our in silico Classifiable Regions
+# (CRs) reflect the identical minimizer decision boundaries experienced by real eDNA reads.
+kraken2_db_path: "/proj/nobackup/snic2019-35-73/data/03-DATABASES/02-MASTER_DB_2025/db"
+kraken2_bin_dir: "/pfs/proj/nobackup/fs/projnb10/snic2019-35-73/bin/kraken2_SweBiTS_MHG_intel"
+kraken2_confidence: 0.1
+kraken2_minimum_hit_groups: 10
+
+# Upstream 516-Sample Kraken 2 Classifications & Trimmed Metagenomic FASTQs
+sample_kraken_pattern: "input/classifications/{sample}.kraken2.gz"
+raw_fastq_pattern: "/proj/nobackup/snic2019-35-73/data/02-LJUNGBYHED/01-SERIES_2013/04_LJUNGBYHED_TRIMMED_FASTQ/files/{sample}_R{pair}.fastq.gz"
+
+# NCBI Datasets Bulk Download / Rehydration Settings
+ncbi_api_key: ""               # Optional; falls back to $NCBI_API_KEY env var if set
+rehydrate_max_attempts: 5
+
+# --- 2. Stage 0: Pre-Flight Gates & Assembly Selection --- #
+# Why min_total_reads = 1000:
+# When a reference genome's Classifiable Regions (CRs) are partitioned into 100 bins
+# ranging in length from 0.3*L_bar to 1.7*L_bar, 1,000 total reads yields an expected
+# Poisson rate lambda >= 3 reads in the smallest bin (0.3% of total CR length),
+# ensuring >= 95% of bins are non-zero under uniform genome sampling.
+min_total_reads: 1000
+force_include_taxids: []       # Optional list of integer TaxIDs to bypass min_total_reads gate
+random_seed: 42                # Deterministic tie-breaker seed for best-assembly selection
+
+# --- 3. Stage 1: Reference Contig Filtering & Audit Thresholds --- #
+# Why min_contig_length = 1000:
+# Short contigs (< 1 kb) in draft eukaryotic assemblies predominantly represent
+# collapsed high-copy repeats, unincorporated adapter/bacterial fragments, or assembly
+# graph tips that cannot even accommodate multiple 400 bp windows cleanly.
+min_contig_length: 1000
+min_kept_assembly_bp: 100000   # Exclude as EXCLUDED_INSUFFICIENT_CONTIG_LENGTH if < 100 kb remains
+max_discarded_bp_pct: 50.0     # Exclude as EXCLUDED_FILTERED_ASSEMBLY_PROPORTION if > 50% of assembly bp is discarded
+max_discarded_contig_pct: 100.0 # Recorded in audit table; 100.0 = do not exclude on contig count % by default
+
+# --- 4. Stage 2: In Silico Tiling & Flanked CR Construction --- #
+# Why 400 bp window with 100 bp step (4x coverage):
+# Slicing at 100 bp step produces a 4x tiling stream where even-indexed windows
+# (idx % 2 == 0) form the exact 200 bp step (2x coverage) dataset. Thus Kraken 2
+# classifies the 2.6 TB database only ONCE, and our consumer builds both 2x and 4x CRs.
+tile_window_bp: 400
+tile_step_4x_bp: 100
+coverage_tier: "2x"            # Active tier for downstream binning & mapping: "2x" (pad +/-200bp) or "4x" (pad +/-100bp)
+
+# --- 5. Stage 3: Variable-Size Linear Binning --- #
+# Why 100 bins scaled linearly from 0.3x to 1.7x mean CR length:
+# Equal-sized bins collapse all X-axis values to a single point (zero variance in X),
+# while whole-contig binning fails on chromosome-scale genomes (only a few points) or
+# fragmented drafts (thousands of noisy points). Linearly increasing bin capacities
+# (0.3*L_bar to 1.7*L_bar) along contigs sorted shortest-to-longest guarantees a 5.7x
+# horizontal spread on the X-axis with zero random numbers.
+n_bins: 100
+bin_min_scale: 0.3
+bin_max_scale: 1.7
+
+# --- 6. Stage 4: Minimap2 CR Alignment & Proportional SAM Filtering --- #
+# Why proportional filtering instead of fixed base counts:
+# fastp-trimmed eDNA reads vary in length. Requiring >= 80% of the read to align
+# (qlen - sclen >= 0.80 * qlen) with <= 1% edit distance across the aligned segment
+# (NM <= 0.01 * (qlen - sclen)) enforces >= 99% sequence identity uniformly across read lengths.
+min_mapq: 30
+min_align_frac: 0.80
+max_mismatch_frac: 0.01
+
+# --- 7. Stage 5: Recursive Outlier Regression & Validation Criteria --- #
+# Why min_occupied_bins_frac = 0.50 and positive slope:
+# Without a minimum occupancy gate, a false-positive taxon with 95 empty bins and 5 huge
+# rRNA/repeat spikes could iteratively prune away empty bins or fit a degenerate line.
+min_occupied_bins_frac: 0.50
+target_r: 0.90                 # Pearson R threshold for validation
+min_retained_cr_frac: 0.50     # Stop pruning if retained CR bp drops below 50% of total L_CR
+
+# --- 8. HPC Resources (Base Values; Dynamic Retries Scale Up Automatically) --- #
+resources:
+  default_retries: 5
+  download_rehydrate:
+    threads: 16
+    mem_mb: 8000
+    runtime_min: 180
+  filter_reference:
+    threads: 2
+    mem_mb: 4000
+    runtime_min: 30
+  extract_sample_reads:
+    threads: 4
+    mem_mb: 8000
+    runtime_min: 60
+  merge_species_fastq:
+    threads: 4
+    mem_mb: 4000
+    runtime_min: 45
+  stream_kraken_cr:            # Single-pass FIFO rule on cpu_largemem (retries: 0)
+    threads: 72
+    mem_mb: 2800000
+    runtime_min: 720
+    constraint: "largemem"
+  build_cr_bins:
+    threads: 2
+    mem_mb: 8000
+    runtime_min: 30
+  map_edna_to_cr:
+    threads: 8
+    mem_mb: 16000
+    runtime_min: 90
+  validate_and_regress:
+    threads: 2
+    mem_mb: 8000
+    runtime_min: 30
+  master_report:
+    threads: 4
+    mem_mb: 16000
+    runtime_min: 30

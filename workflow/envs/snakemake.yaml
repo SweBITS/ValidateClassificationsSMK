@@ -1,0 +1,9 @@
+# Runner environment for executing the Snakemake workflow orchestrator on Kebnekaise (SLURM)
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.12
+  - snakemake>=9.21.1
+  - snakemake-executor-plugin-slurm>=1.2.1

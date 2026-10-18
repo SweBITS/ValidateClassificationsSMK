@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ValidateClassificationsSMK (v2) — eDNA Taxonomic Validation Report</title>
+  <style>
+    :root {
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --border: #e2e8f0;
+      --accent: #0f766e;
+      --clean-bg: #d1fae5;
+      --clean-fg: #065f46;
+      --pruned-bg: #e0f2fe;
+      --pruned-fg: #075985;
+      --failed-bg: #fef3c7;
+      --failed-fg: #92400e;
+      --excluded-bg: #f1f5f9;
+      --excluded-fg: #475569;
+      --danger-bg: #fee2e2;
+      --danger-fg: #991b1b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      line-height: 1.5;
+    }
+    header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #ffffff;
+      padding: 2rem 2.5rem;
+      border-bottom: 4px solid #0d9488;
+    }
+    header h1 {
+      margin: 0 0 0.4rem 0;
+      font-size: 1.65rem;
+      letter-spacing: -0.02em;
+    }
+    header p {
+      margin: 0;
+      color: #cbd5e1;
+      font-size: 0.95rem;
+    }
+    .meta-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      margin-top: 1rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid rgba(255,255,255,0.14);
+      font-size: 0.82rem;
+      color: #94a3b8;
+    }
+    .meta-bar strong { color: #e2e8f0; }
+    .container {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 1.75rem 2rem 3rem 2rem;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+    }
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.15rem 1.35rem;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    .kpi-label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .kpi-value {
+      font-size: 2rem;
+      font-weight: 700;
+      margin: 0.2rem 0;
+    }
+    .kpi-sub { font-size: 0.82rem; color: var(--text-muted); }
+    .section-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.4rem 1.5rem;
+      margin-bottom: 1.75rem;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+    .section-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .section-title {
+      margin: 0;
+      font-size: 1.18rem;
+      font-weight: 700;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .search-input {
+      padding: 0.45rem 0.75rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      min-width: 240px;
+    }
+    .filter-btn {
+      padding: 0.42rem 0.8rem;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #334155;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .filter-btn.active {
+      background: #0f172a;
+      color: #ffffff;
+      border-color: #0f172a;
+    }
+    .table-wrap {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    th, td {
+      padding: 0.6rem 0.7rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      user-select: none;
+    }
+    tr:hover td { background-color: #f8fafc; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .badge-VALIDATED_CLEAN { background: var(--clean-bg); color: var(--clean-fg); }
+    .badge-VALIDATED_PRUNED { background: var(--pruned-bg); color: var(--pruned-fg); }
+    .badge-FAILED_LOW_CORRELATION { background: var(--failed-bg); color: var(--failed-fg); }
+    .badge-FAILED_LOW_OCCUPANCY { background: var(--danger-bg); color: var(--danger-fg); }
+    .badge-EXCLUDED { background: var(--excluded-bg); color: var(--excluded-fg); }
+    .species-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+    .species-card-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.4rem;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+    }
+    .species-card-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin: 0;
+    }
+    .species-card-body { padding: 1.25rem 1.4rem; }
+    .reason-banner {
+      padding: 0.65rem 0.95rem;
+      background: #f1f5f9;
+      border-left: 4px solid #0f766e;
+      border-radius: 4px;
+      font-size: 0.88rem;
+      margin-bottom: 1rem;
+      color: #1e293b;
+    }
+    .metrics-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.15rem;
+    }
+    .metric-box {
+      padding: 0.6rem 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fafafa;
+    }
+    .metric-box .m-lbl { font-size: 0.73rem; color: var(--text-muted); text-transform: uppercase; }
+    .metric-box .m-val { font-size: 0.98rem; font-weight: 700; margin-top: 0.15rem; }
+    .diagnostic-img {
+      width: 100%;
+      height: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: block;
+    }
+    details.pruned-details {
+      margin-top: 0.9rem;
+      font-size: 0.84rem;
+    }
+    details.pruned-details summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: #0f766e;
+    }
+    a.jump-link {
+      color: #0f766e;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    a.jump-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ValidateClassificationsSMK (v2) — High-Throughput eDNA Taxonomic Validation Report</h1>
+    <p>SweBITS Project, Umeå University &middot; 10-Year Ljungbyhed Weekly Air-Filter Metagenomic Time Series (516 Samples, 2013–2022)</p>
+    <div class="meta-bar">
+      <div><strong>Active Coverage Tier:</strong> {{ config.get('coverage_tier', '2x') }} ({{ config.get('tile_window_bp', 400) }} bp window)</div>
+      <div><strong>Kraken 2 Thresholds:</strong> conf={{ config.get('kraken2_confidence', 0.1) }}, MHG={{ config.get('kraken2_minimum_hit_groups', 10) }}</div>
+      <div><strong>Validation Cutoffs:</strong> R &ge; {{ config.get('target_r', 0.90) }}, Occupancy &ge; {{ (config.get('min_occupied_bins_frac', 0.50) * 100)|int }}%, Retained CR &ge; {{ (config.get('min_retained_cr_frac', 0.50) * 100)|int }}%</div>
+      <div><strong>Git Branch / Commit:</strong> {{ wf_info.get('git_branch', 'N/A') }} ({{ wf_info.get('git_commit', 'N/A') }})</div>
+      <div><strong>Generated:</strong> {{ wf_info.get('end_timestamp', 'N/A') }}</div>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Executive Summary KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Target Taxa</div>
+        <div class="kpi-value">{{ kpi.total_targets }}</div>
+        <div class="kpi-sub">Tracked in config/targets.tsv</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Total Validated (R &ge; {{ config.get('target_r', 0.90) }})</div>
+        <div class="kpi-value" style="color: #0f766e;">{{ kpi.validated_total }}</div>
+        <div class="kpi-sub">{{ kpi.validated_clean }} Clean + {{ kpi.validated_pruned }} Pruned</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Validated Clean (0 Bins Pruned)</div>
+        <div class="kpi-value" style="color: #065f46;">{{ kpi.validated_clean }}</div>
+        <div class="kpi-sub">Initial R &ge; {{ config.get('target_r', 0.90) }} across all 100 bins</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Validated After Outlier Pruning</div>
+        <div class="kpi-value" style="color: #0284c7;">{{ kpi.validated_pruned }}</div>
+        <div class="kpi-sub">Reached R &ge; {{ config.get('target_r', 0.90) }} retaining &ge; 50% CR</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Failed / Excluded</div>
+        <div class="kpi-value" style="color: #b45309;">{{ kpi.failed_total }} / {{ kpi.excluded_total }}</div>
+        <div class="kpi-sub">{{ kpi.failed_total }} Failed Regression &middot; {{ kpi.excluded_total }} Pre-Flight Excluded</div>
+      </div>
+    </div>
+
+    <!-- Master Validation Summary Table -->
+    <div class="section-card">
+      <div class="section-header">
+        <h2 class="section-title">Master Validation Summary Ledger (All Target Taxa)</h2>
+        <div class="controls">
+          <input type="text" id="speciesSearch" class="search-input" placeholder="Search species, TaxID, accession, or status..." oninput="filterTable()" />
+          <button class="filter-btn active" onclick="setGroupFilter('ALL', this)">All ({{ kpi.total_targets }})</button>
+          <button class="filter-btn" onclick="setGroupFilter('VALIDATED', this)">Validated ({{ kpi.validated_total }})</button>
+          <button class="filter-btn" onclick="setGroupFilter('FAILED', this)">Failed ({{ kpi.failed_total }})</button>
+          <button class="filter-btn" onclick="setGroupFilter('EXCLUDED', this)">Excluded ({{ kpi.excluded_total }})</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="masterTable">
+          <thead>
+            <tr>
+              <th>TaxID</th>
+              <th>Species</th>
+              <th>Status</th>
+              <th class="num">Clade Reads</th>
+              <th>Chosen Assembly</th>
+              <th>Level</th>
+              <th class="num">Kept Assembly (bp)</th>
+              <th class="num">Discarded bp %</th>
+              <th class="num">2x CR (bp)</th>
+              <th class="num">2x CR %</th>
+              <th class="num">Occupied Bins</th>
+              <th class="num">Initial R</th>
+              <th class="num">Final R</th>
+              <th class="num">Final &rho;</th>
+              <th class="num">Bins Pruned</th>
+              <th class="num">Retained CR %</th>
+              <th class="num">Retained Reads %</th>
+              <th>Status Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for sp in species_cards %}
+            <tr data-group="{{ sp.status_group }}">
+              <td><a class="jump-link" href="#species-{{ sp.t_id }}">{{ sp.t_id }}</a></td>
+              <td><a class="jump-link" href="#species-{{ sp.t_id }}"><em>{{ sp.scientific_name }}</em></a>{% if sp.common_name %} <span style="color:#64748b;">({{ sp.common_name }})</span>{% endif %}</td>
+              <td>
+                {% set badge_cls = sp.validation_status if sp.validation_status.startswith('VALIDATED') or sp.validation_status.startswith('FAILED') else 'EXCLUDED' %}
+                <span class="badge badge-{{ badge_cls }}">{{ sp.validation_status }}</span>
+              </td>
+              <td class="num">{{ "{:,}".format(sp.total_clade_reads) }}</td>
+              <td><code>{{ sp.chosen_accession }}</code></td>
+              <td>{{ sp.chosen_level }}</td>
+              <td class="num">{{ "{:,}".format(sp.kept_assembly_bp) }}</td>
+              <td class="num">{{ "%.2f"|format(sp.discarded_bp_pct) }}%</td>
+              <td class="num">{{ "{:,}".format(sp.cr_bp_2x) }}</td>
+              <td class="num">{{ "%.2f"|format(sp.cr_pct_of_filtered_assembly_2x) }}%</td>
+              <td class="num">{{ sp.occupied_bins }}/{{ sp.n_bins }}</td>
+              <td class="num">{{ "%.4f"|format(sp.initial_pearson_r) }}</td>
+              <td class="num"><strong>{{ "%.4f"|format(sp.final_pearson_r) }}</strong></td>
+              <td class="num">{{ "%.4f"|format(sp.final_spearman_rho) }}</td>
+              <td class="num">{{ sp.bins_pruned_count }}</td>
+              <td class="num">{{ "%.1f"|format(sp.retained_cr_pct) }}%</td>
+              <td class="num">{{ "%.1f"|format(sp.retained_mapped_reads_pct) }}%</td>
+              <td style="white-space: normal; min-width: 280px; color: #334155;">{{ sp.status_reason }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Per-Species Diagnostic Cards -->
+    <h2 style="margin: 2rem 0 1rem 0; font-size: 1.25rem;">Per-Species Diagnostic Profiles &amp; 10-Year Time Series</h2>
+    {% for sp in species_cards %}
+    <div class="species-card" id="species-{{ sp.t_id }}" data-group="{{ sp.status_group }}">
+      <div class="species-card-header">
+        <h3 class="species-card-title">
+          <em>{{ sp.scientific_name }}</em>
+          {% if sp.common_name %}<span style="font-weight:400; color:#475569;">({{ sp.common_name }})</span>{% endif %}
+          &mdash; <span style="font-weight:500; color:#64748b;">TaxID {{ sp.t_id }} &middot; {{ sp.t_phylum or sp.t_domain }} / {{ sp.t_family }}</span>
+        </h3>
+        {% set badge_cls = sp.validation_status if sp.validation_status.startswith('VALIDATED') or sp.validation_status.startswith('FAILED') else 'EXCLUDED' %}
+        <span class="badge badge-{{ badge_cls }}">{{ sp.validation_status }}</span>
+      </div>
+      <div class="species-card-body">
+        <div class="reason-banner">
+          <strong>Decision Summary:</strong> {{ sp.status_reason }}
+        </div>
+        <div class="metrics-strip">
+          <div class="metric-box">
+            <div class="m-lbl">Clade Reads (516w)</div>
+            <div class="m-val">{{ "{:,}".format(sp.total_clade_reads) }} ({{ sp.weeks_present }}w)</div>
+          </div>
+          <div class="metric-box">
+            <div class="m-lbl">Selected Reference</div>
+            <div class="m-val">{{ sp.chosen_accession }} ({{ sp.chosen_level }})</div>
+          </div>
+          <div class="metric-box">
+            <div class="m-lbl">&ge;1 kb Contig Filter</div>
+            <div class="m-val">{{ "{:,}".format(sp.kept_assembly_bp) }} bp ({{ "%.1f"|format(100.0 - sp.discarded_bp_pct) }}% kept)</div>
+          </div>
+          <div class="metric-box">
+            <div class="m-lbl">2x CR Sequence</div>
+            <div class="m-val">{{ "{:,}".format(sp.cr_bp_2x) }} bp ({{ "%.1f"|format(sp.cr_pct_of_filtered_assembly_2x) }}%)</div>
+          </div>
+          <div class="metric-box">
+            <div class="m-lbl">4x CR Sequence</div>
+            <div class="m-val">{{ "{:,}".format(sp.cr_bp_4x) }} bp ({{ "%.1f"|format(sp.cr_pct_of_filtered_assembly_4x) }}%)</div>
+          </div>
+          <div class="metric-box">
+            <div class="m-lbl">Initial &rarr; Final R</div>
+            <div class="m-val">{{ "%.3f"|format(sp.initial_pearson_r) }} &rarr; {{ "%.3f"|format(sp.final_pearson_r) }}</div>
+          </div>
+          <div class="metric-box">
+            <div class="m-lbl">Bins Pruned / CR Kept</div>
+            <div class="m-val">{{ sp.bins_pruned_count }} bins / {{ "%.1f"|format(sp.retained_cr_pct) }}% CR</div>
+          </div>
+          <div class="metric-box">
+            <div class="m-lbl">Clean-Bin Mapped Pairs</div>
+            <div class="m-val">{{ "{:,}".format(sp.retained_mapped_read_pairs) }} ({{ "%.1f"|format(sp.retained_mapped_reads_pct) }}%)</div>
+          </div>
+        </div>
+
+        {% if sp.plot_data_uri %}
+        <img class="diagnostic-img" src="{{ sp.plot_data_uri }}" alt="Diagnostic 3-panel plot for {{ sp.scientific_name }}" />
+        {% endif %}
+
+        {% if sp.pruned_steps %}
+        <details class="pruned-details">
+          <summary>View {{ sp.pruned_steps|length }} Pruned Outlier Bin(s) Trajectory Table</summary>
+          <div class="table-wrap" style="margin-top:0.5rem;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Step</th>
+                  <th>Bin Removed</th>
+                  <th class="num">Bin CR Length (bp)</th>
+                  <th class="num">Reads Removed</th>
+                  <th class="num">Vertical Residual</th>
+                  <th class="num">Retained CR %</th>
+                  <th class="num">Retained Reads %</th>
+                  <th class="num">Pearson R After</th>
+                  <th class="num">Spearman &rho; After</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for st in sp.pruned_steps %}
+                <tr>
+                  <td>#{{ st.iteration }}</td>
+                  <td><code>{{ st.bin_id_removed }}</code></td>
+                  <td class="num">{{ "{:,}".format(st.cr_bp_removed|int) }}</td>
+                  <td class="num">{{ "{:,}".format(st.reads_removed|int) }}</td>
+                  <td class="num">{{ st.vertical_residual }}</td>
+                  <td class="num">{{ st.retained_cr_pct }}%</td>
+                  <td class="num">{{ st.retained_reads_pct }}%</td>
+                  <td class="num"><strong>{{ st.pearson_r }}</strong></td>
+                  <td class="num">{{ st.spearman_rho }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <!-- SLURM Benchmark Summary -->
+    {% if benchmarks %}
+    <div class="section-card">
+      <h2 class="section-title" style="margin-bottom:0.85rem;">HPC Stage Resource Benchmark Summary</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Pipeline Stage</th>
+              <th class="num">Completed Jobs</th>
+              <th class="num">Total Walltime (min)</th>
+              <th class="num">Max Job Walltime (min)</th>
+              <th class="num">Mean Job Walltime (s)</th>
+              <th class="num">Peak RSS Memory (MB)</th>
+              <th class="num">Mean RSS Memory (MB)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in benchmarks %}
+            <tr>
+              <td><code>{{ b.stage }}</code></td>
+              <td class="num">{{ b.job_count }}</td>
+              <td class="num">{{ b.total_walltime_min }}</td>
+              <td class="num">{{ b.max_walltime_min }}</td>
+              <td class="num">{{ b.mean_walltime_sec }}</td>
+              <td class="num">{{ b.max_rss_mb }}</td>
+              <td class="num">{{ b.mean_rss_mb }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <script>
+    let currentGroup = 'ALL';
+    function setGroupFilter(group, btn) {
+      currentGroup = group;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      filterTable();
+    }
+    function filterTable() {
+      const q = (document.getElementById('speciesSearch').value || '').toLowerCase();
+      document.querySelectorAll('#masterTable tbody tr').forEach(tr => {
+        const grp = tr.getAttribute('data-group');
+        const txt = tr.innerText.toLowerCase();
+        const matchGrp = (currentGroup === 'ALL') || (grp === currentGroup);
+        const matchTxt = !q || txt.includes(q);
+        tr.style.display = (matchGrp && matchTxt) ? '' : 'none';
+      });
+      document.querySelectorAll('.species-card').forEach(card => {
+        const grp = card.getAttribute('data-group');
+        const txt = card.innerText.toLowerCase();
+        const matchGrp = (currentGroup === 'ALL') || (grp === currentGroup);
+        const matchTxt = !q || txt.includes(q);
+        card.style.display = (matchGrp && matchTxt) ? '' : 'none';
+      });
+    }
+  </script>
+</body>
+</html>

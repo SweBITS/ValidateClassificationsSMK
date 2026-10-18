@@ -1,0 +1,9 @@
+# Environment for bulk dehydrated genome downloads and parallel MD5-verified rehydration
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.12
+  - ncbi-datasets-cli>=18.39.0
+  - unzip>=6.0

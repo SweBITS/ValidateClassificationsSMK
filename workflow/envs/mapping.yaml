@@ -1,0 +1,12 @@
+# Environment for Stage 4 Minimap2 alignment to CR contigs and streaming SAM-to-Parquet filtering
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.12
+  - minimap2>=2.31
+  - samtools>=1.21
+  - polars>=2.0.0
+  - pyarrow>=19.0.0
+  - pigz>=2.8

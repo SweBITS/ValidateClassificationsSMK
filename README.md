@@ -1,107 +1,107 @@
-# ValidateClassificationsSMK
+# ValidateClassificationsSMK (v2)
 
-Map taxon-specific reads (e.g., previously classified by Kraken 2) to reference genomes using BBMap and validate classifications through simulated read benchmarking and an interactive joint HTML report.
-
-This pipeline is designed for high-performance computing clusters using the SLURM Workload Manager and Conda package manager. Profiles are provided for PDC Dardel (`slurm/pdc`) and HPC2N Kebnekaise (`slurm/hpc2n`).
+High-throughput Snakemake workflow for validating putative taxonomic detections in the 10-year Ljungbyhed airborne environmental DNA (eDNA) shotgun metagenomic timeseries (**516 weekly samples, 2013–2022**), developed by the **SweBITS** project at Umeå University.
 
 ---
 
-## Workflow Overview
+## Core Concept: Why & How We Validate Detections
 
-The pipeline consists of two main branches:
+When a species is genuinely present in an environmental sample, shotgun sequencing reads classified to that species clade by Kraken 2 should distribute across its genome in proportion to the length of its **Classifiable Regions (CRs)**—the specific genomic intervals capable of yielding a species-clade classification given our exact database (`2.6 TB hash.k2d`) and parameters (`--confidence 0.1 --minimum-hit-groups 10`).
 
-### 1. Mapping Branch (`rules/map.smk`)
-For each TaxID and reference genome defined in `supporting_files/mapping_specification.tsv`:
-1. **Index Reference Genome**: Builds BBMap index files for the reference FASTA genome.
-2. **Map Reads**: Maps real paired-end reads (`input/fastq/taxID-{tax_id}_R{1,2}.fq.gz`) to the reference genome using `bbmap.sh` with strict pairing filters (`killbadpairs=t`, `pairedonly=t`).
-3. **Sort & Mark Duplicates**: Coordinate-sorts BAMs with `sambamba sort` and flags duplicates with `sambamba markdup`.
-4. **Coverage & Stats Calculation**: Calculates mapping coverage across genomes and computes insert size / read length distributions.
+Conversely, false-positive detections (caused by cross-mapping to conserved rRNA/housekeeping motifs, unsequenced sister species, or reference assembly contaminants) pile into a few localized spikes while leaving most classifiable regions empty.
 
-### 2. Simulation & Validation Branch (`rules/simulation_validation.smk`)
-*(Enabled when `RUN_VALIDATION: True` in `config.yaml`)*
-1. **Read Simulation (pIRS)**: Generates synthetic error-free reads matching empirical insert sizes and read lengths.
-2. **Kraken 2 Classification**: Concatenates and classifies simulated reads against the reference Kraken 2 database.
-3. **Classifiable Regions BED**: Identifies regions with sufficient reference coverage to be classified correctly.
-4. **Overlap & Correlation Analysis**: Intersects real read alignments with classifiable regions and measures per-contig correlations.
-5. **Joint Validation Report**: Compiles workflow metadata, mapping metrics, and interactive Plotly scatterplots into a consolidated report (`output/validation/joint_validation_report.html`).
+### Pipeline Overview (6 Automated Stages)
+
+1. **Stage 0 — Clade Resolution (`JolTax`), Pre-Flight Gates & Best-Assembly Selection**:
+   - Expands each target TaxID in `config/targets.tsv` into its full descendant clade (`JolTax`).
+   - **Pre-Flight Gate 1**: Requires $\ge 1,000$ total clade read pairs across the 516 weeks (`EXCLUDED_LOW_READ_COUNT` if below threshold, ensuring sufficient statistical power across 100 bins).
+   - **Pre-Flight Gate 2**: Excludes clades represented only by mitochondrial/plastid genomes (`EXCLUDED_ORGANELLAR_ONLY`).
+   - Selects the single best reference assembly in the clade (`RefSeq category` $\rightarrow$ `Assembly level` $\rightarrow$ `Species node` $\rightarrow$ `N50` $\rightarrow$ `Contig count` $\rightarrow$ `Release date` $\rightarrow$ `Seed 42`) and downloads/rehydrates all selected genomes in bulk via NCBI `datasets` with parallel MD5 verification.
+2. **Stage 1 — Upfront Contig Filtering ($\ge 1,000\text{ bp}$) & Quality Audit**:
+   - Removes short contigs ($< 1,000\text{ bp}$) and audits sequence retention in `results/00_ledger/assembly_filtering_summary.tsv`.
+   - Excludes assemblies leaving $< 100\text{ kb}$ (`EXCLUDED_INSUFFICIENT_CONTIG_LENGTH`) or losing $> 50\%$ of base pairs (`EXCLUDED_FILTERED_ASSEMBLY_PROPORTION`).
+3. **Stage 2 — Zero-Disk `400 bp` Streaming Tiling & Single-Pass Kraken 2 CR Discovery**:
+   - Slices all active filtered references into `400 bp` windows stepped every `100 bp` ($4\times$ coverage) and streams them through a POSIX FIFO into Kraken 2 once.
+   - Because even-numbered windows (`idx % 2 == 0`) form the exact `200 bp` step ($2\times$ coverage) dataset, a single Kraken 2 pass simultaneously builds both **$2\times$ CRs** ($\pm 200\text{ bp}$ step-padded) and **$4\times$ CRs** ($\pm 100\text{ bp}$ step-padded), clamped to contig ends and merged with zero base-pair overlap.
+4. **Stage 3 — Shortest-to-Longest Contig Sorting & Linear Variable-Size Binning (`100 Bins`)**:
+   - Sorts contigs containing CRs from shortest to longest and partitions total CR sequence ($L_{\text{CR}}$) into **100 sequential bins** with linearly increasing capacities from $0.3\bar{L}$ to $1.7\bar{L}$, outputting `{taxid}.cr_contigs.fa`.
+5. **Stage 4 — Sample-Aware eDNA Read Extraction & CR-Exclusive Alignment**:
+   - Extracts clade reads across all 516 samples using `seqtk subseq`, tagging each header with `|sample=<sample_id>`.
+   - Aligns paired-end reads exclusively to `{taxid}.cr_contigs.fa` using `minimap2 -ax sr` (without PCR deduplication) and filters primary alignments by `MAPQ >= 30`, aligned read fraction $\ge 80\%$, and edit distance $\le 1\%$ ($\ge 99\%$ identity).
+6. **Stage 5 — Bidirectional Recursive Outlier Regression & 516-Week Signal Reconstruction**:
+   - Enforces a minimum bin occupancy sanity gate ($\ge 50\%$ non-empty bins and positive initial slope $\beta_1 > 0$).
+   - Iteratively prunes the single bin with the largest absolute vertical residual ($|Y_i - \hat{Y}_i|$) until Pearson $R \ge 0.90$ (`VALIDATED_CLEAN` or `VALIDATED_PRUNED`) or retained CR length drops below $50\%$ (`FAILED_LOW_CORRELATION`).
+   - Reconstructs the cleaned 516-week time series (`raw_kraken_reads`, `all_cr_mapped_reads`, `validated_clean_bin_reads`) and builds the self-contained HTML report.
 
 ---
 
-## Usage
+## Repository Layout & Input Structure
 
-### Prerequisites & Setup
-
-#### 1. Snakemake Environment
-Ensure you have Snakemake (v9+) installed with the SLURM executor plugin:
-```bash
-conda create -c conda-forge -c bioconda -n snakemake snakemake>=9.1.3 snakemake-executor-plugin-slurm pyyaml
-conda activate snakemake
+```text
+ValidateClassificationsSMK/
+├── config/
+│   ├── config.yaml                  # Algorithmic parameters, database paths & SLURM resources
+│   └── targets.tsv                  # User-facing target species table (t_id, t_species)
+├── input/                           # External inputs (git-ignored except .gitkeep)
+│   ├── database_manifest.tsv        # Kraken 2 reference assembly metadata manifest
+│   ├── classifications/             # 516 weekly per-read Kraken 2 files ({sample}.kraken2.gz)
+│   └── merged_reports/              # Merged weekly canonical counts (lj_stringent_canonical_counts.tsv.gz)
+├── slurm/
+│   ├── hpc2n/config.yaml            # Battle-tested HPC2N Kebnekaise SLURM profile
+│   └── slurm-jobscript.sh           # SLURM job wrapper script
+└── workflow/
+    ├── Snakefile                    # Main Snakemake entrypoint
+    ├── envs/                        # Modular Conda environment definitions (*.yaml)
+    ├── rules/                       # Modular Snakemake rule stages (00_*.smk .. 06_*.smk)
+    └── scripts/                     # Documented Python scripts & HTML Jinja2 template
 ```
 
-#### 2. Reference Genomes
-Place or symlink uncompressed reference genomes (`.fasta`, `.fna`, or `.fa`) into:
-```
-supporting_files/genomes/
-```
+---
 
-#### 3. Mapping Specification File (`supporting_files/mapping_specification.tsv`)
-A tab-delimited TSV file linking taxonomic IDs to reference genomes and species names:
-* Path configurable via `MAPPING_SPECIFICATION` in `config.yaml`.
-* Template provided in `supporting_files/mapping_specification_TEMPLATE.tsv`.
+## Quickstart
 
-**Format (tab-delimited):**
+### 1. Define Target Species (`config/targets.tsv`)
+Add the NCBI TaxID (`t_id`) and species name (`t_species`) for each taxon you want to validate:
 ```tsv
-tax_id	name	fasta_file
-30423	Coloeus monedula	GCA_013407035.1_ASM1340703v1_genomic.fna
-37598	Fringilla coelebs	GCA_963513975.1_bFriCoe1.1_genomic.fna
-9187	Turdus merula	GCA_046127255.1_ASM4612725v1_genomic.fna
+t_id	t_species
+30423	Coloeus monedula
+8934	Columba palumbus
+36056	Boletus edulis
 ```
-* **`tax_id`**: Integer taxonomic identifier.
-* **`name`**: Descriptive taxon name (alphanumerics, spaces, underscores, and hyphens allowed).
-* **`fasta_file`**: Filename of the uncompressed reference FASTA in `supporting_files/genomes/`.
+You do **not** need to look up assembly accessions or download FASTA files manually.
 
-#### 4. Input FASTQ Files
-Place or symlink paired-end FASTQ files in `input/fastq/`.
-* File naming pattern must match `FASTQ_FILE_PATTERN` in `config.yaml` (default: `fastq/taxID-{tax_id}_R{read_pair}.fq.gz`, resolved relative to `input/`).
-* Example: `input/fastq/taxID-30423_R1.fq.gz` and `input/fastq/taxID-30423_R2.fq.gz`.
+### 2. Review Parameters (`config/config.yaml`)
+All thresholds (`min_total_reads: 1000`, `coverage_tier: "2x"`, `n_bins: 100`, `target_r: 0.90`, `min_retained_cr_frac: 0.50`) and cluster paths (`input/database_manifest.tsv`, `joltax_cache_dir`, `kraken2_db_path`) are pre-configured in [`config/config.yaml`](config/config.yaml).
 
-#### 5. Kraken 2 Reference Database
-Set `KRAKEN2_DB_PATH` in `config.yaml` to point to a Kraken 2 database directory containing `taxonomy/names.dmp` and `taxonomy/nodes.dmp`.
+### 3. Run on Kebnekaise (SLURM)
+```bash
+# Dry-run to inspect the planned DAG
+snakemake -n
 
----
-
-### Running the Pipeline
-
-1. **Activate Environment**:
-   ```bash
-   conda activate snakemake
-   ```
-
-2. **Dry Run (Verify Workflow Plan)**:
-   ```bash
-   snakemake -n --use-conda
-   ```
-
-3. **Execute via SLURM Profile**:
-   * For PDC Dardel:
-     ```bash
-     snakemake --profile slurm/pdc --use-conda
-     ```
-   * For HPC2N Kebnekaise:
-     ```bash
-     snakemake --profile slurm/hpc2n --use-conda
-     ```
-
-4. **Execute Locally / Interactive Node**:
-   ```bash
-   snakemake --use-conda --cores <NUM_CORES>
-   ```
+# Launch on HPC2N Kebnekaise using the SLURM profile and Conda environments
+snakemake --profile slurm/hpc2n --use-conda
+```
 
 ---
 
-### Output
+## Output Directory Guide
 
-Key output files produced in `output/`:
-* `output/mapping/`: Indexed, deduplicated BAM files and coverage/stats reports.
-* `output/validation/`: Simulated reads, classifiable BED regions, and correlation TSVs.
-* **`output/validation/joint_validation_report.html`**: Interactive HTML report summarizing all runs, metrics, and correlation plots across all taxa.
+Every target species is tracked from start to finish—failed or excluded species **never crash the pipeline** and always appear in the final summary tables and HTML dashboard:
+
+| Path | Description |
+| :--- | :--- |
+| `results/05_reports/validation_report.html` | **Interactive Self-Contained HTML Dashboard** (executive summary, filterable status table, embedded 3-panel diagnostic plots, and SLURM benchmarks). |
+| `results/05_reports/validation_master_summary.tsv` | **Master Lifecycle Table** (also saved as `.parquet`) with all Stage 0–5 metrics and final `validation_status` for every target taxon. |
+| `results/05_reports/validated_timeseries_long.parquet` | **Unified 516-Week Time Series** (`raw_kraken_reads`, `all_cr_mapped_reads`, `validated_clean_bin_reads`) across all target taxa. |
+| `results/04_validation/{t_id}_{Species_name}/` | **Per-Species Results Folder** containing `{t_id}.diagnostic_3panel.png` (and `.pdf`), `{t_id}.bin_regression_data.tsv`, `{t_id}.pruning_trajectory.tsv`, and `{t_id}.weekly_timeseries_516w.tsv`. |
+| `results/00_ledger/assembly_filtering_summary.tsv` | **Stage 1 Contig Filtering Audit Table** recording raw vs. kept contigs and base pairs ($\ge 1,000\text{ bp}$). |
+
+### Validation Status Codes
+- `VALIDATED_CLEAN`: Passed occupancy gate ($\ge 50\%$ bins) and achieved Pearson $R \ge 0.90$ ($\beta_1 > 0$) across all 100 bins with **0 bins pruned**.
+- `VALIDATED_PRUNED`: Passed occupancy gate and achieved Pearson $R \ge 0.90$ ($\beta_1 > 0$) after bidirectional outlier pruning while retaining $\ge 50\%$ of total CR sequence.
+- `FAILED_LOW_OCCUPANCY`: Fewer than $50\%$ of CR bins contained $\ge 1$ mapped read pair, or initial OLS slope was $\le 0$.
+- `FAILED_LOW_CORRELATION`: Could not reach $R \ge 0.90$ before hitting the $50\%$ CR sequence retention floor.
+- `EXCLUDED_LOW_READ_COUNT`: Fewer than `min_total_reads` ($1,000$) clade read pairs across the 516-week series.
+- `EXCLUDED_ORGANELLAR_ONLY`: Clade represented solely by mitochondrial/chloroplast/plastid sequences in the Kraken 2 database.
+- `EXCLUDED_INSUFFICIENT_CONTIG_LENGTH`: Fewer than $100\text{ kb}$ of sequence remained after removing $< 1,000\text{ bp}$ contigs.
+- `EXCLUDED_FILTERED_ASSEMBLY_PROPORTION`: More than $50\%$ of assembly base pairs were discarded by the $< 1,000\text{ bp}$ filter.

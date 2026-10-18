@@ -1,0 +1,10 @@
+# Environment for C-speed sample Kraken 2 clade scanning and single-pass seqtk FASTQ extraction
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.12
+  - seqtk>=1.5
+  - pigz>=2.8
+  - gawk>=5.3.0

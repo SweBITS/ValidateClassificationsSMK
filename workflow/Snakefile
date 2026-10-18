@@ -1,0 +1,117 @@
+# ============================================================================ #
+# ValidateClassificationsSMK (v2) — High-Throughput eDNA Validation Pipeline
+# ============================================================================ #
+# SweBITS Project, Umeå University — Architected for HPC2N Kebnekaise (SLURM)
+#
+# WHY THIS WORKFLOW IS STRUCTURED AROUND A CHECKPOINT & STATUS LEDGER:
+# When validating dozens or hundreds of putative eDNA detections across 516 weekly
+# metagenomic samples, individual taxa may legitimately fail pre-flight checks
+# (e.g., < 1,000 total reads across 10 years, organellar-only database representation,
+# or highly fragmented draft assemblies with < 100 kb in >= 1 kb contigs).
+#
+# Instead of crashing Snakemake or forcing manual curation of `config/targets.tsv`,
+# Stage 0 and Stage 1 evaluate all pre-flight and reference quality gates up front
+# and emit a Snakemake checkpoint (`results/00_ledger/active_species.tsv`).
+# Only species passing both Stage 0 and Stage 1 trigger heavy downstream compute
+# (516-sample FASTQ extraction, 2.6 TB Kraken 2 streaming, CR binning, Minimap2
+# alignment, and recursive OLS regression), while EVERY target species from
+# `config/targets.tsv` is guaranteed to appear in `validation_master_summary.tsv`
+# and `validation_report.html` with its explicit `validation_status` and `status_reason`.
+
+from pathlib import Path
+import csv
+import os
+import sys
+
+configfile: "config/config.yaml"
+
+# --- Resolve Core Directories --- #
+WORKFLOW_DIR = Path(workflow.current_basedir)
+PROJECT_ROOT = WORKFLOW_DIR.parent if WORKFLOW_DIR.name == "workflow" else WORKFLOW_DIR
+SCRIPTS_DIR = WORKFLOW_DIR / "scripts"
+ENVS_DIR = WORKFLOW_DIR / "envs"
+RESULTS_DIR = Path("results")
+LOGS_DIR = Path("logs")
+BENCHMARKS_DIR = Path("benchmarks")
+
+# --- Discover the 516 Metagenomic Samples from Classification Files --- #
+SAMPLE_KRAKEN_PATTERN = config["sample_kraken_pattern"]
+SAMPLES = sorted(set(glob_wildcards(SAMPLE_KRAKEN_PATTERN).sample))
+if not SAMPLES:
+    sys.exit(
+        f"WORKFLOW_ERROR: No sample classification files found matching pattern '{SAMPLE_KRAKEN_PATTERN}'."
+    )
+
+# --- Dynamic SLURM Retry Resource Scaling Helpers --- #
+# Why we scale mem_mb and runtime with `attempt`:
+# Eukaryotic genomes vary in size by > 2 orders of magnitude (10 Mb fungi to > 3 Gb
+# vertebrates/plants), and eDNA read counts per taxon span 10^3 to > 5x10^7 pairs.
+# Scaling memory and walltime by +50% on each retry attempt (`retries: 5`) allows
+# baseline jobs to schedule quickly on Kebnekaise while automatically recovering
+# from SLURM OOM or TIMEOUT kills on giant genomes or high-read taxa.
+RES_CFG = config.get("resources", {})
+DEFAULT_RETRIES = int(RES_CFG.get("default_retries", 5))
+
+
+def get_threads(rule_key: str, default: int = 2) -> int:
+    return int(RES_CFG.get(rule_key, {}).get("threads", default))
+
+
+def scale_mem_mb(rule_key: str, default_mb: int = 4000, scale: float = 0.5):
+    base = int(RES_CFG.get(rule_key, {}).get("mem_mb", default_mb))
+    return lambda wildcards, attempt: int(base * (1.0 + scale * (attempt - 1)))
+
+
+def scale_runtime(rule_key: str, default_min: int = 30, scale: float = 0.5):
+    base = int(RES_CFG.get(rule_key, {}).get("runtime_min", default_min))
+    return lambda wildcards, attempt: f"{int(base * (1.0 + scale * (attempt - 1)))}m"
+
+
+# --- Checkpoint Helper Functions --- #
+def get_active_species_records(wildcards=None):
+    """
+    Read `results/00_ledger/active_species.tsv` produced by `checkpoint filter_and_audit_assemblies`
+    and return the list of dicts for all species that passed Stage 0 and Stage 1.
+    """
+    ckpt_output = checkpoints.filter_and_audit_assemblies.get().output.active_species
+    records = []
+    with open(ckpt_output, "r", encoding="utf-8") as fh:
+        for row in csv.DictReader(fh, delimiter="\t"):
+            if row.get("t_id"):
+                records.append(row)
+    return records
+
+
+def get_active_taxids(wildcards=None):
+    return [str(r["t_id"]) for r in get_active_species_records(wildcards)]
+
+
+def get_active_species_map(wildcards=None):
+    return {str(r["t_id"]): r for r in get_active_species_records(wildcards)}
+
+
+wildcard_constraints:
+    t_id=r"[0-9]+",
+    sample=r"Lj_[0-9]+_[0-9]+_[0-9]+",
+
+localrules:
+    all,
+    workflow_start_info
+
+rule all:
+    default_target: True
+    input:
+        master_tsv = "results/05_reports/validation_master_summary.tsv",
+        master_parquet = "results/05_reports/validation_master_summary.parquet",
+        timeseries_parquet = "results/05_reports/validated_timeseries_long.parquet",
+        html_report = "results/05_reports/validation_report.html",
+        wf_info = "results/00_ledger/workflow_run_info.json"
+
+# --- Include Modular Stage Rules --- #
+include: "rules/00_preflight_and_assemblies.smk"
+include: "rules/01_filter_reference.smk"
+include: "rules/02_extract_edna_reads.smk"
+include: "rules/03_stream_kraken_cr.smk"
+include: "rules/04_bin_classifiable_regions.smk"
+include: "rules/05_map_edna_to_cr.smk"
+include: "rules/06_regress_and_report.smk"
