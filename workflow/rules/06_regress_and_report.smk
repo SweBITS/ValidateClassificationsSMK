@@ -25,7 +25,7 @@ rule validate_and_regress_species:
         metrics_json = "results/04_validation/{t_id}_{species_slug}/{t_id}.validation_metrics.json"
     params:
         script = str(SCRIPTS_DIR / "validate_and_regress.py"),
-        species_name = lambda wc: wc.species_slug.replace("_", " "),
+        species_name = lambda wc: get_active_species_map(wc)[str(wc.t_id)]["scientific_name"],
         raw_weekly_tsv = lambda wc: f"results/01_inputs/raw_weekly_counts/{wc.t_id}.raw_weekly.tsv",
         min_occ_frac = config.get("min_occupied_bins_frac", 0.50),
         target_r = config.get("target_r", 0.90),
