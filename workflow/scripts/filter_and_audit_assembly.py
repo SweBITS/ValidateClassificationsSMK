@@ -282,19 +282,27 @@ def main() -> None:
                 f"Retained sequence after >= {args.min_contig_length} bp filter ({kept_bp:,} bp across "
                 f"{kept_contigs:,} contigs) is below min_kept_assembly_bp ({args.min_kept_bp:,} bp)"
             )
-            # Remove unused filtered FASTA content to save space while keeping empty placeholder if needed
+            _unused_fa = refs_dir / f"{tid}.{clean_acc}.filtered.fna"
+            if _unused_fa.is_file():
+                _unused_fa.unlink()
         elif disc_bp_pct > args.max_discarded_bp_pct:
             s1_status = ValidationStatus.EXCLUDED_FILTERED_ASSEMBLY_PROPORTION
             s1_reason = (
                 f"Discarded base-pair proportion ({disc_bp_pct:.2f}% of {st['raw_assembly_bp']:,} bp) "
                 f"exceeds max_discarded_bp_pct threshold ({args.max_discarded_bp_pct:.2f}%)"
             )
+            _unused_fa = refs_dir / f"{tid}.{clean_acc}.filtered.fna"
+            if _unused_fa.is_file():
+                _unused_fa.unlink()
         elif disc_contig_pct > args.max_discarded_contig_pct:
             s1_status = ValidationStatus.EXCLUDED_FILTERED_ASSEMBLY_PROPORTION
             s1_reason = (
                 f"Discarded contig-count proportion ({disc_contig_pct:.2f}% of {st['raw_contig_count']:,} contigs) "
                 f"exceeds max_discarded_contig_pct threshold ({args.max_discarded_contig_pct:.2f}%)"
             )
+            _unused_fa = refs_dir / f"{tid}.{clean_acc}.filtered.fna"
+            if _unused_fa.is_file():
+                _unused_fa.unlink()
         else:
             s1_status = ValidationStatus.PASSED_STAGE1
             s1_reason = (
@@ -361,6 +369,18 @@ def main() -> None:
         writer = csv.DictWriter(act_fh, fieldnames=active_fields, delimiter="\t")
         writer.writeheader()
         writer.writerows(active_rows)
+
+    # Clean up temporary raw NCBI download directory and zip archive once all filtered references are written
+    import shutil
+    ncbi_work_dir = Path(args.accession_manifest).parent
+    raw_download_dir = ncbi_work_dir / "download_dir"
+    dehydrated_zip = ncbi_work_dir / "dehydrated.zip"
+    if raw_download_dir.is_dir():
+        shutil.rmtree(raw_download_dir, ignore_errors=True)
+        logger.info(f"Cleaned up temporary raw NCBI download directory: {raw_download_dir}")
+    if dehydrated_zip.is_file():
+        dehydrated_zip.unlink()
+        logger.info(f"Cleaned up temporary NCBI dehydrated archive: {dehydrated_zip}")
 
     logger.info(
         f"Stage 1 audit complete: {len(active_rows)}/{len(stage0_rows)} target species passed "

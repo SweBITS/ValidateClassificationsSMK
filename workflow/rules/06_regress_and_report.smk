@@ -39,8 +39,8 @@ rule validate_and_regress_species:
     threads: get_threads("validate_and_regress", 2)
     retries: DEFAULT_RETRIES
     resources:
-        mem_mb = scale_mem_mb("validate_and_regress", 8000),
-        runtime = scale_runtime("validate_and_regress", 30),
+        mem_mb = scale_mem_mb("validate_and_regress", 4000, input_mb_mult=30.0),
+        runtime = scale_runtime("validate_and_regress", 15),
         cpus_per_task = get_threads("validate_and_regress", 2)
     shell:
         r"""
@@ -66,11 +66,12 @@ rule validate_and_regress_species:
 rule generate_species_diagnostic_figure:
     """
     WHY:
-    Produces the publication-grade 3-panel diagnostic figure for each active species:
+    Produces the publication-grade 4-panel diagnostic figure for each active species:
       - Panel A: Regression Scatter Plot (Retained circles vs. Pruned triangles labeled by step,
                  Initial dashed regression line vs. Final solid line with 95% CI band).
       - Panel B: Dual-axis Pruning Trajectory Curve (Pearson R vs. % Retained CR Length).
       - Panel C: 516-Week Time Series Comparison (Raw Kraken Reads vs. Validated Clean-Bin Reads).
+      - Panel D: 1-to-1 Weekly Scatter Plot (Raw Kraken Clade Reads vs. Validated Clean-Bin Reads).
     """
     input:
         bin_reg_tsv = "results/04_validation/{t_id}_{species_slug}/{t_id}.bin_regression_data.tsv",
@@ -90,12 +91,12 @@ rule generate_species_diagnostic_figure:
         "benchmarks/06_regress_and_report/plot_species_{t_id}_{species_slug}.tsv"
     conda:
         str(ENVS_DIR / "core_polars_joltax.yaml")
-    threads: 1
+    threads: get_threads("plot_species", 1)
     retries: DEFAULT_RETRIES
     resources:
-        mem_mb = scale_mem_mb("validate_and_regress", 4000),
-        runtime = scale_runtime("validate_and_regress", 20),
-        cpus_per_task = 1
+        mem_mb = scale_mem_mb("plot_species", 2000),
+        runtime = scale_runtime("plot_species", 10),
+        cpus_per_task = get_threads("plot_species", 1)
     shell:
         r"""
         python {params.script} \

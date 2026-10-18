@@ -238,7 +238,16 @@ def load_targets(targets_tsv: Path, logger) -> List[Dict[str, Any]]:
                 continue
             seen_tids.add(tid)
             species_label = (row.get("t_species") or "").strip()
-            targets.append({"t_id": tid, "t_species_input": species_label})
+            override_acc = (row.get("override_accession") or "").strip()
+            if override_acc.upper() in {"NA", "NONE", "NULL", "-"}:
+                override_acc = ""
+            if override_acc:
+                logger.info(f"TaxID {tid} ({species_label}): manual override_accession='{override_acc}' specified in {targets_tsv.name}")
+            targets.append({
+                "t_id": tid,
+                "t_species_input": species_label,
+                "override_accession": override_acc,
+            })
 
     logger.info(f"Loaded {len(targets)} unique target taxa from {targets_tsv}")
     return targets
@@ -438,13 +447,22 @@ def main() -> None:
     candidate_clean_accs: Set[str] = set()
     for item in targets:
         tid = item["t_id"]
+        ov_acc = item.get("override_accession", "")
+        if ov_acc:
+            c_ov = clean_ncbi_accession(ov_acc)
+            candidate_clean_accs.add(c_ov)
+            if c_ov.startswith("GCF_"):
+                candidate_clean_accs.add("GCA_" + c_ov[4:])
         for r in clade_assemblies.get(tid, []):
             if not is_organellar_row(r) and r.get("a_status", "").strip().lower() == "current":
                 raw_a = (r.get("a_accession") or "").strip()
                 if raw_a:
-                    candidate_clean_accs.add(clean_ncbi_accession(raw_a))
+                    c_a = clean_ncbi_accession(raw_a)
+                    candidate_clean_accs.add(c_a)
+                    if c_a.startswith("GCF_"):
+                        candidate_clean_accs.add("GCA_" + c_a[4:])
 
-    live_ncbi_status: Dict[str, Tuple[str, str]] = {}
+    live_ncbi_meta: Dict[str, Dict[str, Any]] = {}
     if candidate_clean_accs:
         datasets_bin = shutil.which("datasets")
         if not datasets_bin:
@@ -454,13 +472,11 @@ def main() -> None:
                     datasets_bin = str(cand_bin)
                     break
 
-        if datasets_bin:
-            logger.info(
-                f"Querying live NCBI assembly status via `{datasets_bin} summary genome accession` "
-                f"for {len(candidate_clean_accs)} candidate nuclear assembly(ies)..."
-            )
+        def _query_ncbi_batch(accs_to_query: Set[str]) -> None:
+            if not accs_to_query or not datasets_bin:
+                return
             with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as tf:
-                for acc in sorted(candidate_clean_accs):
+                for acc in sorted(accs_to_query):
                     tf.write(f"{acc}\n")
                 tmp_acc_path = tf.name
             try:
@@ -482,15 +498,33 @@ def main() -> None:
                             rec = json.loads(line)
                             acc = rec.get("accession") or rec.get("current_accession") or ""
                             ainfo = rec.get("assembly_info", {})
+                            astats = rec.get("assembly_stats", {})
+                            org = rec.get("organism", {})
+                            paired_info = ainfo.get("paired_assembly", {})
                             st = (ainfo.get("assembly_status") or "unknown").strip().lower()
                             rsn = (ainfo.get("suppression_reason") or "").strip()
+                            paired_acc = (
+                                paired_info.get("accession")
+                                or rec.get("paired_accession")
+                                or ""
+                            ).strip()
+                            paired_st = (paired_info.get("status") or "").strip().lower()
+                            src_db_raw = (rec.get("source_database") or "").upper()
+                            src_db = "REFSEQ" if "REFSEQ" in src_db_raw else ("GENBANK" if "GENBANK" in src_db_raw else "NCBI")
                             if acc:
-                                live_ncbi_status[acc] = (st, rsn)
+                                live_ncbi_meta[acc] = {
+                                    "status": st,
+                                    "reason": rsn,
+                                    "paired_accession": paired_acc,
+                                    "paired_status": paired_st,
+                                    "level": (ainfo.get("assembly_level") or "NA").strip(),
+                                    "refseq_category": (ainfo.get("refseq_category") or "none").strip(),
+                                    "seqlen": str(astats.get("total_sequence_length") or "NA"),
+                                    "taxid": str(org.get("tax_id") or "NA"),
+                                    "source_db": src_db,
+                                }
                         except Exception:
                             pass
-                    logger.info(
-                        f"Received live NCBI status for {len(live_ncbi_status)}/{len(candidate_clean_accs)} candidate assembly(ies)."
-                    )
                 else:
                     logger.warning(
                         f"`datasets summary genome accession` returned code {proc.returncode}: {proc.stderr.strip()}"
@@ -500,10 +534,48 @@ def main() -> None:
                     os.unlink(tmp_acc_path)
                 except OSError:
                     pass
+
+        if datasets_bin:
+            logger.info(
+                f"Querying live NCBI assembly status via `{datasets_bin} summary genome accession` "
+                f"for {len(candidate_clean_accs)} candidate/fallback accession(s)..."
+            )
+            _query_ncbi_batch(candidate_clean_accs)
+            # If any suppressed GCF_ record listed a paired_accession with a different version suffix not yet queried, fetch it
+            extra_paired: Set[str] = set()
+            for acc, mdict in list(live_ncbi_meta.items()):
+                p_acc = mdict.get("paired_accession", "")
+                if p_acc and p_acc not in live_ncbi_meta:
+                    extra_paired.add(p_acc)
+            if extra_paired:
+                _query_ncbi_batch(extra_paired)
+            logger.info(
+                f"Received live NCBI metadata for {len(live_ncbi_meta)} accession(s)."
+            )
         else:
             logger.warning("`datasets` binary not found on PATH; skipping live NCBI pre-check in Stage 0.")
 
-    # 5. Evaluate Pre-Flight Gate 1, Gate 2, Live NCBI Availability, and Best-Assembly Selection Cascade
+    def _find_live_gca_for_suppressed_gcf(gcf_acc: str) -> Optional[str]:
+        """
+        Given a suppressed RefSeq `GCF_` accession, check if a live (`current` or `previous`)
+        GenBank `GCA_` equivalent exists on NCBI (checking both `paired_accession` and `GCA_` + suffix).
+        """
+        if not gcf_acc.startswith("GCF_"):
+            return None
+        rec = live_ncbi_meta.get(gcf_acc, {})
+        candidates_gca: List[str] = []
+        if rec.get("paired_accession", "").startswith("GCA_"):
+            candidates_gca.append(rec["paired_accession"])
+        direct_gca = "GCA_" + gcf_acc[4:]
+        if direct_gca not in candidates_gca:
+            candidates_gca.append(direct_gca)
+        for gca_cand in candidates_gca:
+            g_meta = live_ncbi_meta.get(gca_cand)
+            if g_meta and g_meta["status"] not in {"suppressed", "withdrawn", "retired", "missing_on_ncbi"}:
+                return gca_cand
+        return None
+
+    # 5. Evaluate Pre-Flight Gate 1, Manual Override, Gate 2, Live NCBI (+ GCF->GCA Fallback), and Selection Cascade
     Path(args.out_ledger).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out_accessions).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out_clade_map).parent.mkdir(parents=True, exist_ok=True)
@@ -515,6 +587,7 @@ def main() -> None:
 
     for item in targets:
         tid = item["t_id"]
+        override_acc = item.get("override_accession", "")
         info = joltax_info[tid]
         sci_name = info["scientific_name"]
         species_slug = sanitize_species_slug(item["t_species_input"] or sci_name)
@@ -530,14 +603,30 @@ def main() -> None:
             if not is_organellar_row(r) and r.get("a_status", "").strip().lower() == "current"
         ]
 
-        # Partition nuclear_manifest_rows into live-available vs. suppressed on NCBI
+        # Partition nuclear_manifest_rows into live-available (with GCF->GCA fallback) vs. suppressed on NCBI
         nuclear_current_rows: List[Dict[str, str]] = []
         suppressed_details: List[str] = []
         for r in nuclear_manifest_rows:
             c_acc = clean_ncbi_accession(r.get("a_accession", ""))
-            if live_ncbi_status:
-                ncbi_st, ncbi_rsn = live_ncbi_status.get(c_acc, ("missing_on_ncbi", "not returned by NCBI datasets"))
+            if live_ncbi_meta:
+                m_entry = live_ncbi_meta.get(c_acc)
+                ncbi_st = m_entry["status"] if m_entry else "missing_on_ncbi"
+                ncbi_rsn = m_entry["reason"] if m_entry else "not returned by NCBI datasets"
                 if ncbi_st in {"suppressed", "withdrawn", "retired", "missing_on_ncbi"}:
+                    # If this is a suppressed RefSeq (GCF_) genome, check if its GenBank (GCA_) equivalent is live
+                    gca_equiv = _find_live_gca_for_suppressed_gcf(c_acc)
+                    if gca_equiv:
+                        gca_meta = live_ncbi_meta[gca_equiv]
+                        r_copy = dict(r)
+                        r_copy["a_accession"] = gca_equiv
+                        r_copy["a_source_db"] = "GENBANK"
+                        r_copy["_fallback_note"] = f"gcf_to_gca_fallback({c_acc}->{gca_equiv})"
+                        nuclear_current_rows.append(r_copy)
+                        logger.info(
+                            f"TaxID {tid} ({sci_name}): suppressed RefSeq candidate {c_acc} ({ncbi_st}) "
+                            f"recovered via live GenBank equivalent {gca_equiv} ({gca_meta['status']})"
+                        )
+                        continue
                     detail_str = f"{c_acc} [status={ncbi_st}" + (f": {ncbi_rsn}]" if ncbi_rsn else "]")
                     suppressed_details.append(detail_str)
                     logger.warning(f"TaxID {tid} ({sci_name}): excluding candidate assembly {detail_str}")
@@ -564,6 +653,81 @@ def main() -> None:
                 f"Total clade reads across 516 weeks ({total_reads:,}) is below "
                 f"min_total_reads threshold ({args.min_total_reads:,})"
             )
+        elif override_acc:
+            # Manual user override from config/targets.tsv bypasses database_manifest.tsv selection
+            c_ov = clean_ncbi_accession(override_acc)
+            ov_meta = live_ncbi_meta.get(c_ov) if live_ncbi_meta else None
+            ov_st = ov_meta["status"] if ov_meta else ("unknown" if not live_ncbi_meta else "missing_on_ncbi")
+            ov_rsn = ov_meta["reason"] if ov_meta else "not returned by NCBI datasets"
+
+            resolved_ov_acc = c_ov
+            ov_sel_reason = "manual_override"
+
+            if live_ncbi_meta and ov_st in {"suppressed", "withdrawn", "retired", "missing_on_ncbi"}:
+                gca_equiv = _find_live_gca_for_suppressed_gcf(c_ov)
+                if gca_equiv:
+                    resolved_ov_acc = gca_equiv
+                    ov_meta = live_ncbi_meta[gca_equiv]
+                    ov_st = ov_meta["status"]
+                    ov_sel_reason = f"manual_override+gcf_to_gca_fallback({c_ov}->{gca_equiv})"
+                    logger.info(
+                        f"TaxID {tid} ({sci_name}): manual override {c_ov} is suppressed on RefSeq; "
+                        f"falling back to live GenBank equivalent {gca_equiv}"
+                    )
+                else:
+                    resolved_ov_acc = ""
+
+            if not resolved_ov_acc:
+                status = ValidationStatus.EXCLUDED_NCBI_UNAVAILABLE
+                reason = (
+                    f"Manual override assembly {c_ov} is unavailable on live NCBI "
+                    f"[status={ov_st}: {ov_rsn}] and no live GCA equivalent exists"
+                )
+            else:
+                # Also check if manifest has metadata for this accession as fallback
+                manifest_match = next(
+                    (r for r in all_rows if clean_ncbi_accession(r.get("a_accession", "")) == resolved_ov_acc),
+                    None,
+                )
+                chosen_acc = resolved_ov_acc
+                clean_acc = resolved_ov_acc
+                chosen_taxid = (
+                    (ov_meta["taxid"] if ov_meta and ov_meta["taxid"] != "NA" else None)
+                    or (manifest_match.get("t_id", "").strip() if manifest_match else None)
+                    or str(tid)
+                )
+                chosen_source = (
+                    (ov_meta["source_db"] if ov_meta else None)
+                    or (manifest_match.get("a_source_db", "").strip() if manifest_match else None)
+                    or ("REFSEQ" if resolved_ov_acc.startswith("GCF_") else "GENBANK")
+                )
+                chosen_level = (
+                    (ov_meta["level"] if ov_meta and ov_meta["level"] != "NA" else None)
+                    or (manifest_match.get("a_level", "").strip() if manifest_match else None)
+                    or "NA"
+                )
+                chosen_refseq = (
+                    (ov_meta["refseq_category"] if ov_meta and ov_meta["refseq_category"] != "none" else None)
+                    or (manifest_match.get("a_refseq_category", "").strip() if manifest_match else None)
+                    or "none"
+                )
+                chosen_seqlen = (
+                    (ov_meta["seqlen"] if ov_meta and ov_meta["seqlen"] != "NA" else None)
+                    or (manifest_match.get("a_seqlen", "").strip() if manifest_match else None)
+                    or "NA"
+                )
+                selection_reason = ov_sel_reason
+                status = ValidationStatus.PASSED_STAGE0
+                forced_note = " (force_included)" if (total_reads < args.min_total_reads and tid in force_set) else ""
+                reason = (
+                    f"Passed Stage 0 ({total_reads:,} clade reads across {n_weeks_present}/516 weeks{forced_note}; "
+                    f"selected {chosen_acc} [{chosen_level}, {chosen_refseq}] via {selection_reason})"
+                )
+                if clean_acc not in seen_accessions:
+                    seen_accessions.add(clean_acc)
+                    selected_ncbi_accessions.append(clean_acc)
+                for dtid in info["clade_list"]:
+                    passing_clade_pairs.append((dtid, tid, species_slug))
         elif not all_rows:
             status = ValidationStatus.EXCLUDED_NO_ASSEMBLY_IN_DB
             reason = f"No assemblies found in database_manifest.tsv for clade of TaxID {tid} ({len(info['clade_list'])} taxa)"
@@ -580,13 +744,16 @@ def main() -> None:
             status = ValidationStatus.EXCLUDED_NCBI_UNAVAILABLE
             reason = (
                 f"All {len(nuclear_manifest_rows)} candidate nuclear assembly(ies) in clade are "
-                f"suppressed/unavailable on live NCBI: {'; '.join(suppressed_details)}"
+                f"suppressed/unavailable on live NCBI (and no live GCA equivalent): {'; '.join(suppressed_details)}"
             )
         else:
             # Passed Pre-Flight Gate 1, Gate 2, and live NCBI availability -> Select single best assembly!
             chosen_row, sel_reason = select_best_assembly_for_clade(
                 tid, nuclear_current_rows, random_seed=args.random_seed
             )
+            fb_note = chosen_row.get("_fallback_note", "")
+            if fb_note:
+                sel_reason = f"{sel_reason}+{fb_note}"
             chosen_acc = chosen_row.get("a_accession", "").strip()
             clean_acc = clean_ncbi_accession(chosen_acc)
             chosen_taxid = chosen_row.get("t_id", "").strip()

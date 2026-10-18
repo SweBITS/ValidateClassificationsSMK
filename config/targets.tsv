@@ -1,4 +1,6 @@
-t_id	t_species
+# Optional 3rd column `override_accession`: specify an NCBI assembly accession (e.g. GCA_... or GCF_...)
+# to manually override database_manifest.tsv selection for that t_id. Leave empty for automatic selection.
+t_id	t_species	override_accession
 325452	Phytophthora kernoviae
 40932	Rhopalosiphum padi
 43146	Rhopalosiphum maidi

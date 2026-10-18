@@ -15,11 +15,13 @@ homologous alignments from partial/clipped cross-mappings to conserved motifs:
    coordinate "duplicates" artificially saturates high-read bins and flattens the linear
    relationship between CR length and read count.
 
-2. **Read-Length-Proportional Alignment Filtering**:
+2. **Strict Proper-Pair Same-CR Alignment Filtering**:
    Because fastp-trimmed eDNA reads vary in length (typically 50–150 bp), fixed base-pair
-   cutoffs bias against shorter or longer reads. Instead, we filter every primary alignment
-   (`SAM flag & 0x904 == 0`, excluding unmapped `0x4`, secondary `0x100`, and supplementary
-   `0x800` records) using three read-proportional criteria:
+   cutoffs bias against shorter or longer reads. We require every counted fragment to be a
+   **proper pair (`0x2`) mapping within the exact same Classifiable Region (`cr_id`, `RNEXT == "="`)**
+   where **BOTH R1 and R2** are primary alignments (`SAM flag & 0x90C == 0`, excluding unmapped
+   `0x4`, mate-unmapped `0x8`, secondary `0x100`, and supplementary `0x800` records) and **BOTH**
+   mates individually satisfy all three read-proportional criteria:
      - **Mapping Quality**: `MAPQ >= min_mapq` (default 30, i.e. <= 0.1% probability of wrong placement).
      - **Aligned Read Fraction**: `(qlen - sclen) >= min_align_frac * qlen` (default 0.80), where
        `qlen` is total query read length and `sclen` is the sum of soft-clipped (`S`) and
@@ -27,10 +29,10 @@ homologous alignments from partial/clipped cross-mappings to conserved motifs:
      - **Maximum Mismatch Fraction**: `NM <= max_mismatch_frac * (qlen - sclen)` (default 0.01,
        corresponding to >= 99.0% sequence identity across the aligned portion of the read).
 
-3. **Compact Polars Parquet Storage**:
-   Passing alignments are written to `{taxid}.passing_alignments.parquet` via **Polars**,
-   embedding the parsed `read_id`, `sample_id`, normalized `year_week` (`YYYY_WW`), `bin_id`,
-   `cr_id`, `mapq`, `qlen`, `aligned_bp`, and `nm` for rapid Stage 5 aggregation.
+3. **O(1)-Memory Adjacent Mate Pairing & Compact Polars Parquet Storage**:
+   Because `minimap2 -ax sr` emits R1 and R2 of each read pair consecutively, we pair passing R1
+   and R2 alignments on the fly in $O(1)$ memory (eliminating multi-gigabyte hash sets on 50M-read
+   taxa) and write only complete 2-mate proper pairs to `{taxid}.passing_alignments.parquet`.
 """
 
 import argparse
@@ -38,7 +40,7 @@ import csv
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import polars as pl
 import pyarrow as pa
@@ -48,6 +50,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common_ledger import sample_id_to_year_week, setup_logger
 
 CIGAR_TOKEN_RE = re.compile(r"(\d+)([MIDNSHP=X])")
+MINIMAP2_PROCESSED_RE = re.compile(r"(?:mapped|processed)\s+(\d+)\s+sequences")
 
 # Pre-defined Polars schema so even a 0-alignment species produces a valid, typed Parquet file
 ALIGNMENT_SCHEMA = {
@@ -152,14 +155,34 @@ def parse_rname_metadata(rname: str) -> Tuple[str, str, str]:
     return cr_id, bin_id, contig
 
 
+def parse_minimap2_total_sequences(log_path: Optional[str]) -> int:
+    """Sum `[M::worker_pipeline::*] processed <N> sequences` from minimap2 stderr log if available."""
+    if not log_path:
+        return 0
+    p = Path(log_path)
+    if not p.is_file():
+        return 0
+    total = 0
+    try:
+        with open(p, "r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                m = MINIMAP2_PROCESSED_RE.search(line)
+                if m:
+                    total += int(m.group(1))
+    except Exception:
+        return 0
+    return total
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Stage 4: Filter SAM stream from minimap2 by MAPQ, aligned fraction, and mismatch fraction into Polars Parquet."
+        description="Stage 4: Filter SAM stream from minimap2 for strict same-CR proper pairs into Polars Parquet."
     )
     parser.add_argument("--taxid", type=int, required=True, help="Target species TaxID")
     parser.add_argument("--min-mapq", type=int, default=30, help="Minimum MAPQ (default: 30)")
     parser.add_argument("--min-align-frac", type=float, default=0.80, help="Minimum aligned read fraction (default: 0.80)")
     parser.add_argument("--max-mismatch-frac", type=float, default=0.01, help="Maximum mismatch (NM) fraction of aligned length (default: 0.01)")
+    parser.add_argument("--minimap2-log", default=None, help="Optional path to minimap2 stderr log for total sequence count")
     parser.add_argument("--out-parquet", required=True, help="Output Parquet path: {t_id}.passing_alignments.parquet")
     parser.add_argument("--out-stats-tsv", required=True, help="Output TSV path: {t_id}.mapping_stats.tsv")
     parser.add_argument("--log", default=None, help="Log file path")
@@ -173,7 +196,9 @@ def main() -> None:
     failed_mapq = 0
     failed_align_frac = 0
     failed_mismatch_frac = 0
+    failed_mate_pair = 0
     passing_records = 0
+    unique_read_pairs = 0
 
     # Columnar buffers for streaming PyArrow Parquet writer
     col_read_id: List[str] = []
@@ -193,7 +218,6 @@ def main() -> None:
     out_parquet = Path(args.out_parquet)
     out_parquet.parent.mkdir(parents=True, exist_ok=True)
     writer = pq.ParquetWriter(out_parquet, PYARROW_SCHEMA, compression="zstd", compression_level=3)
-    seen_read_ids: Set[str] = set()
 
     def flush_batch() -> None:
         if not col_read_id:
@@ -231,14 +255,33 @@ def main() -> None:
         col_nm.clear()
         col_mismatch_frac.clear()
 
+    def append_record(rec: Tuple[str, str, str, int, str, str, str, int, int, int, float, int, float]) -> None:
+        col_read_id.append(rec[0])
+        col_sample_id.append(rec[1])
+        col_year_week.append(rec[2])
+        col_mate.append(rec[3])
+        col_bin_id.append(rec[4])
+        col_cr_id.append(rec[5])
+        col_contig.append(rec[6])
+        col_mapq.append(rec[7])
+        col_qlen.append(rec[8])
+        col_aligned_bp.append(rec[9])
+        col_align_frac.append(rec[10])
+        col_nm.append(rec[11])
+        col_mismatch_frac.append(rec[12])
+
     min_mapq = args.min_mapq
     min_align_frac = args.min_align_frac
     max_mismatch_frac = args.max_mismatch_frac
 
     logger.info(
-        f"Filtering SAM stream for TaxID {args.taxid} "
-        f"(MAPQ >= {min_mapq}, align_frac >= {min_align_frac:.2f}, mismatch_frac <= {max_mismatch_frac:.4f})..."
+        f"Filtering SAM stream for TaxID {args.taxid} (strict same-CR proper pairs: flag 0x2, "
+        f"RNEXT='=', both mates MAPQ >= {min_mapq}, align_frac >= {min_align_frac:.2f}, "
+        f"mismatch_frac <= {max_mismatch_frac:.4f})..."
     )
+
+    # Buffer for the first passing mate of a read pair
+    pending_mate: Optional[Tuple[str, str, str, int, str, str, str, int, int, int, float, int, float]] = None
 
     for line in sys.stdin:
         if not line or line.startswith("@"):
@@ -249,8 +292,13 @@ def main() -> None:
             continue
 
         flag = int(fields[1])
-        # Exclude unmapped (0x4), secondary (0x100), and supplementary (0x800) -> 0x904 = 2308
-        if (flag & 0x904) != 0:
+        rname = fields[2]
+        rnext = fields[6]
+
+        # Require proper pair (0x2), exclude unmapped (0x4), mate unmapped (0x8),
+        # secondary (0x100), and supplementary (0x800) -> 0x90C = 2316,
+        # and require both mates to map to the exact same CR contig (rnext == "=" or rnext == rname)
+        if (flag & 0x90C) != 0 or (flag & 0x2) == 0 or (rnext != "=" and rnext != rname):
             unmapped_or_nonprimary += 1
             continue
 
@@ -284,40 +332,66 @@ def main() -> None:
             failed_mismatch_frac += 1
             continue
 
-        # Passed all Stage 4 alignment filters!
-        passing_records += 1
+        # Individual mate passed all filters; pair with its mate on the same CR
         qname = fields[0]
-        rname = fields[2]
         read_id, sample_id, year_week = parse_qname_sample(qname)
         cr_id, bin_id, source_contig = parse_rname_metadata(rname)
         mate = 1 if (flag & 0x40) else (2 if (flag & 0x80) else 0)
+        curr_rec = (
+            read_id,
+            sample_id,
+            year_week,
+            mate,
+            bin_id,
+            cr_id,
+            source_contig,
+            mapq,
+            qlen,
+            aligned_bp,
+            round(align_frac, 6),
+            nm,
+            round(mismatch_frac, 6),
+        )
 
-        col_read_id.append(read_id)
-        col_sample_id.append(sample_id)
-        col_year_week.append(year_week)
-        col_mate.append(mate)
-        col_bin_id.append(bin_id)
-        col_cr_id.append(cr_id)
-        col_contig.append(source_contig)
-        col_mapq.append(mapq)
-        col_qlen.append(qlen)
-        col_aligned_bp.append(aligned_bp)
-        col_align_frac.append(round(align_frac, 6))
-        col_nm.append(nm)
-        col_mismatch_frac.append(round(mismatch_frac, 6))
-        seen_read_ids.add(read_id)
+        if pending_mate is None:
+            pending_mate = curr_rec
+        elif (
+            pending_mate[0] == read_id
+            and pending_mate[5] == cr_id
+            and pending_mate[3] != mate
+            and pending_mate[3] in (1, 2)
+            and mate in (1, 2)
+        ):
+            # Both R1 and R2 of this proper pair passed all filters on the exact same CR!
+            append_record(pending_mate)
+            append_record(curr_rec)
+            pending_mate = None
+            passing_records += 2
+            unique_read_pairs += 1
+            if len(col_read_id) >= 200_000:
+                flush_batch()
+        else:
+            # Previous pending mate's partner did not pass filters; replace with current mate
+            failed_mate_pair += 1
+            pending_mate = curr_rec
 
-        if len(col_read_id) >= 200_000:
-            flush_batch()
+    if pending_mate is not None:
+        failed_mate_pair += 1
+        pending_mate = None
 
     flush_batch()
     writer.close()
-    unique_read_pairs = len(seen_read_ids)
+
+    # If samtools pre-filtered the stream, recover total input sequences from minimap2 log if available
+    mm2_total = parse_minimap2_total_sequences(args.minimap2_log)
+    if mm2_total > total_sam_records:
+        unmapped_or_nonprimary += (mm2_total - total_sam_records)
+        total_sam_records = mm2_total
 
     out_stats = Path(args.out_stats_tsv)
     out_stats.parent.mkdir(parents=True, exist_ok=True)
     with open(out_stats, "w", encoding="utf-8", newline="") as sfh:
-        writer = csv.DictWriter(
+        stats_writer = csv.DictWriter(
             sfh,
             fieldnames=[
                 "t_id",
@@ -332,22 +406,22 @@ def main() -> None:
             ],
             delimiter="\t",
         )
-        writer.writeheader()
-        writer.writerow({
+        stats_writer.writeheader()
+        stats_writer.writerow({
             "t_id": args.taxid,
             "total_sam_records": total_sam_records,
             "unmapped_or_nonprimary": unmapped_or_nonprimary,
             "primary_mapped_records": primary_mapped_records,
             "failed_mapq": failed_mapq,
             "failed_align_frac": failed_align_frac,
-            "failed_mismatch_frac": failed_mismatch_frac,
+            "failed_mismatch_frac": failed_mismatch_frac + failed_mate_pair,
             "passing_mate_alignments": passing_records,
             "unique_passing_read_pairs": unique_read_pairs,
         })
 
     logger.info(
-        f"TaxID {args.taxid}: {passing_records:,} mate alignments ({unique_read_pairs:,} unique read pairs) "
-        f"passed Stage 4 filters out of {primary_mapped_records:,} primary mapped records."
+        f"TaxID {args.taxid}: {unique_read_pairs:,} strict proper read pairs ({passing_records:,} mate alignments) "
+        f"mapped within the same CR and passed all filters (dropped {failed_mate_pair:,} single-mate survivors)."
     )
 
 

@@ -10,8 +10,9 @@ rule map_edna_to_cr:
     without PCR deduplication (`markdup` is intentionally omitted so high-abundance biological
     peaks do not saturate compact CRs).
 
-    Alignments are stream-filtered on the fly (`-F 0x904`, `MAPQ >= 30`, `(qlen - sclen) >= 0.80 * qlen`,
-    `NM <= 0.01 * (qlen - sclen)`) directly into a compact Polars Parquet file without writing
+    Alignments are stream-filtered on the fly (`-f 0x2 -F 0x90C`, `RNEXT == "="`, and BOTH
+    mates passing `MAPQ >= 30`, `(qlen - sclen) >= 0.80 * qlen`, `NM <= 0.01 * (qlen - sclen)`
+    within the exact same CR) directly into a compact Polars Parquet file without writing
     large intermediate SAM/BAM files to disk.
     """
     input:
@@ -36,8 +37,8 @@ rule map_edna_to_cr:
     threads: get_threads("map_edna_to_cr", 8)
     retries: DEFAULT_RETRIES
     resources:
-        mem_mb = scale_mem_mb("map_edna_to_cr", 16000),
-        runtime = scale_runtime("map_edna_to_cr", 90),
+        mem_mb = scale_mem_mb("map_edna_to_cr", 8000, input_mb_mult=6.0),
+        runtime = scale_runtime("map_edna_to_cr", 45),
         cpus_per_task = get_threads("map_edna_to_cr", 8)
     shell:
         r"""
@@ -59,12 +60,13 @@ rule map_edna_to_cr:
         fi
 
         minimap2 -ax sr -t {threads} {input.cr_fasta} {input.r1} {input.r2} 2> {log.minimap2} \
-            | samtools view -h -F 0x904 -q {params.min_mapq} - 2>> {log.minimap2} \
+            | samtools view -h -f 0x2 -F 0x90C -q {params.min_mapq} - 2>> {log.minimap2} \
             | python {params.script} \
                 --taxid {wildcards.t_id} \
                 --min-mapq {params.min_mapq} \
                 --min-align-frac {params.min_align_frac} \
                 --max-mismatch-frac {params.max_mismatch_frac} \
+                --minimap2-log {log.minimap2} \
                 --out-parquet {output.parquet} \
                 --out-stats-tsv {output.stats_tsv} \
                 --log {log.filter_sam}

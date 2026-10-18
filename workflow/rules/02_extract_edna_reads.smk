@@ -61,8 +61,8 @@ rule merge_species_fastq:
         active_species = "results/00_ledger/active_species.tsv",
         sample_dones = expand("results/01_inputs/sample_chunks/{sample}/{sample}.extract.done", sample=SAMPLES)
     output:
-        r1 = "results/01_inputs/fastq/taxID-{t_id}_R1.fq.gz",
-        r2 = "results/01_inputs/fastq/taxID-{t_id}_R2.fq.gz"
+        r1 = temp("results/01_inputs/fastq/taxID-{t_id}_R1.fq.gz"),
+        r2 = temp("results/01_inputs/fastq/taxID-{t_id}_R2.fq.gz")
     params:
         chunks_root = "results/01_inputs/sample_chunks"
     log:
@@ -71,12 +71,12 @@ rule merge_species_fastq:
         "benchmarks/02_extract_reads/merge_species_taxID-{t_id}.tsv"
     conda:
         str(ENVS_DIR / "extract_reads.yaml")
-    threads: get_threads("merge_species_fastq", 4)
+    threads: get_threads("merge_species_fastq", 1)
     retries: DEFAULT_RETRIES
     resources:
-        mem_mb = scale_mem_mb("merge_species_fastq", 4000),
-        runtime = scale_runtime("merge_species_fastq", 45),
-        cpus_per_task = get_threads("merge_species_fastq", 4)
+        mem_mb = scale_mem_mb("merge_species_fastq", 2000),
+        runtime = scale_runtime("merge_species_fastq", 15),
+        cpus_per_task = get_threads("merge_species_fastq", 1)
     shell:
         r"""
         (

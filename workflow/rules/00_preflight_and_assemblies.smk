@@ -57,12 +57,12 @@ rule resolve_clades_and_assemblies:
         "benchmarks/00_preflight/resolve_clades_and_assemblies.tsv"
     conda:
         str(ENVS_DIR / "core_polars_joltax.yaml")
-    threads: 2
+    threads: get_threads("resolve_clades", 2)
     retries: DEFAULT_RETRIES
     resources:
-        mem_mb = scale_mem_mb("filter_reference", 4000),
-        runtime = scale_runtime("filter_reference", 30),
-        cpus_per_task = 2
+        mem_mb = scale_mem_mb("resolve_clades", 4000),
+        runtime = scale_runtime("resolve_clades", 15),
+        cpus_per_task = get_threads("resolve_clades", 2)
     shell:
         r"""
         python {params.script} \

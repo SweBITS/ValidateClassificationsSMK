@@ -149,16 +149,23 @@ def main() -> None:
     n_bins = len(bins_df)
     total_cr_bp = int(bins_df["actual_cr_bp"].sum()) if n_bins > 0 else 0
 
-    # 2. Load Stage 4 alignments & deduplicate at the read-pair (fragment) level
-    #    Why deduplicate by `read_id` here:
-    #    Kraken 2 classifies paired-end fragments (1 count per R1+R2 pair). When both mates of a
-    #    fragment pass Stage 4 alignment filters on the same CR bin, collapsing by `read_id`
-    #    (keeping highest MAPQ, then longest aligned_bp) ensures 1 eDNA fragment = 1 mapped count.
-    aln_df = pl.read_parquet(args.alignments_parquet)
+    # 2. Load Stage 4 alignments & collapse each strict 2-mate proper pair on the same CR to 1 fragment count
+    #    Why:
+    #    Kraken 2 classifies paired-end fragments (1 count per R1+R2 pair). We require BOTH mates
+    #    (R1 and R2) of a read pair to map as a proper pair within the exact same CR (`cr_id`) and
+    #    both to pass all Stage 4 alignment filters. Because `filter_sam_to_parquet.py` (and `minimap2`)
+    #    emits the two mates of each passing pair as adjacent rows `(row i, row i+1)` with the same
+    #    `read_id`, same `cr_id`, and complementary `mate` (`1` vs `2`), we can extract one row per
+    #    complete same-CR proper pair in O(N) time and low memory (~7.4 GB RSS even on 52M rows).
+    aln_df = pl.read_parquet(
+        args.alignments_parquet,
+        columns=["read_id", "year_week", "mate", "bin_id", "cr_id"],
+    )
     if len(aln_df) > 0:
-        dedup_pairs_df = (
-            aln_df.sort(["mapq", "aligned_bp"], descending=[True, True])
-            .unique(subset=["read_id"], keep="first", maintain_order=False)
+        dedup_pairs_df = aln_df.filter(
+            (pl.col("read_id") == pl.col("read_id").shift(1))
+            & (pl.col("cr_id") == pl.col("cr_id").shift(1))
+            & (pl.col("mate") != pl.col("mate").shift(1))
         )
     else:
         dedup_pairs_df = aln_df

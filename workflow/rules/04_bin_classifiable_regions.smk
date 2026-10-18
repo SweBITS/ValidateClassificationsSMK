@@ -12,24 +12,38 @@ def get_species_contig_lengths(wildcards):
     return rec["contig_lengths_tsv"]
 
 
+def scale_cr_bins_mem_mb(wildcards, attempt):
+    base = int(RES_CFG.get("build_cr_bins", {}).get("mem_mb", 4000))
+    est_mb = base
+    try:
+        rec = get_active_species_map(wildcards)[str(wildcards.t_id)]
+        kept_mb = int(rec.get("kept_assembly_bp", 0)) / 1_000_000.0
+        est_mb = max(base, int(base / 2 + kept_mb * 2.0))
+    except Exception:
+        est_mb = base
+    return int(round(est_mb * (MEM_RETRY_BASE ** (attempt - 1))))
+
+
 rule build_cr_bins:
     """
     WHY:
     Takes the merged Classifiable Regions (CRs) for a species from the active coverage tier
     (`2x` by default, or `4x`), sorts contigs containing CRs from shortest total contig length
     to longest, partitions the total CR sequence into 100 bins of linearly increasing target
-    capacity ($0.3\\bar{L}$ to $1.7\\bar{L}$), and extracts ONLY those CR sequences into a compact
-    reference FASTA (`{t_id}.cr_contigs.fa`) for Stage 4 alignment.
+    capacity ($0.3\\bar{L}$ to $1.7\\bar{L}$), extracts ONLY those CR sequences into a compact
+    reference FASTA (`{t_id}.cr_contigs.fa`) for Stage 4 alignment, and cleans up the
+    temporary full-genome `{t_id}.{acc}.filtered.fna` file.
     """
     input:
+        active_species = "results/00_ledger/active_species.tsv",
         cr_sentinel = "results/02_classifiable_regions/cr_stream.done",
-        filtered_fasta = get_species_filtered_fasta,
         contig_lengths = get_species_contig_lengths
     output:
         cr_fasta = "results/02_classifiable_regions/{t_id}/{t_id}.cr_contigs.fa",
         bins_tsv = "results/02_classifiable_regions/{t_id}/{t_id}.bins_metadata.tsv"
     params:
         script = str(SCRIPTS_DIR / "build_cr_bins.py"),
+        filtered_fasta = get_species_filtered_fasta,
         tier = config.get("coverage_tier", "2x"),
         cr_bed = lambda wc: f"results/02_classifiable_regions/{wc.t_id}/{wc.t_id}.cr_{config.get('coverage_tier', '2x')}.bed",
         n_bins = config.get("n_bins", 100),
@@ -41,17 +55,17 @@ rule build_cr_bins:
         "benchmarks/04_bin_cr/build_cr_bins_taxID-{t_id}.tsv"
     conda:
         str(ENVS_DIR / "core_polars_joltax.yaml")
-    threads: get_threads("build_cr_bins", 2)
+    threads: get_threads("build_cr_bins", 1)
     retries: DEFAULT_RETRIES
     resources:
-        mem_mb = scale_mem_mb("build_cr_bins", 8000),
-        runtime = scale_runtime("build_cr_bins", 30),
-        cpus_per_task = get_threads("build_cr_bins", 2)
+        mem_mb = scale_cr_bins_mem_mb,
+        runtime = scale_runtime("build_cr_bins", 15),
+        cpus_per_task = get_threads("build_cr_bins", 1)
     shell:
         r"""
         python {params.script} \
             --taxid {wildcards.t_id} \
-            --filtered-fasta {input.filtered_fasta} \
+            --filtered-fasta {params.filtered_fasta} \
             --contig-lengths {input.contig_lengths} \
             --cr-bed {params.cr_bed} \
             --out-cr-fasta {output.cr_fasta} \
@@ -59,5 +73,6 @@ rule build_cr_bins:
             --n-bins {params.n_bins} \
             --min-scale {params.min_scale} \
             --max-scale {params.max_scale} \
+            --cleanup-filtered-fasta \
             --log {log}
         """

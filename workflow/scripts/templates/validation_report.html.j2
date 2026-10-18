@@ -490,17 +490,17 @@
       </div>
       <div class="kpi-card" data-tooltip="Genuine eDNA detections where mapped reads distribute linearly across all 100 CR bins without removing any genomic bins.">
         <div class="kpi-label">Validated Clean (0 Bins Pruned)</div>
-        <div class="kpi-value" style="color: #065f46;">{{ kpi.validated_clean }}</div>
+        <div class="kpi-value" style="color: #047857;">{{ kpi.validated_clean }}</div>
         <div class="kpi-sub">Initial R &ge; {{ config.get('target_r', 0.90) }} across all 100 bins</div>
       </div>
       <div class="kpi-card" data-tooltip="Confirmed eDNA detections validated after excising 1 or more outlier bins (e.g. rDNA/repeats/artifacts) while retaining >= 50% CR length.">
         <div class="kpi-label">Validated After Outlier Pruning</div>
-        <div class="kpi-value" style="color: #0d9488;">{{ kpi.validated_pruned }}</div>
+        <div class="kpi-value" style="color: #10b981;">{{ kpi.validated_pruned }}</div>
         <div class="kpi-sub">Reached R &ge; {{ config.get('target_r', 0.90) }} retaining &ge; 50% CR</div>
       </div>
       <div class="kpi-card" data-tooltip="Taxa failing either Stage 5 regression gates (low occupancy or low correlation) or excluded during pre-flight checks.">
         <div class="kpi-label">Failed / Excluded</div>
-        <div class="kpi-value" style="color: #991b1b;">{{ kpi.failed_total }} / {{ kpi.excluded_total }}</div>
+        <div class="kpi-value" style="color: #dc2626;">{{ kpi.failed_total }} / {{ kpi.excluded_total }}</div>
         <div class="kpi-sub">{{ kpi.failed_total }} Failed Regression &middot; {{ kpi.excluded_total }} Pre-Flight Excluded</div>
       </div>
     </div>
@@ -951,6 +951,8 @@
 
     function positionTooltip(target) {
       if (!tooltipEl || !target) return;
+      tooltipEl.style.left = '0px';
+      tooltipEl.style.top = '0px';
       const rect = target.getBoundingClientRect();
       const tipWidth = tooltipEl.offsetWidth;
       const tipHeight = tooltipEl.offsetHeight;

@@ -91,7 +91,7 @@ rule stream_kraken_cr:
             tail -n +2 {input.active_species} | while IFS=$'\t' read -r tid t_sp sci slug acc clean_acc fasta clen_tsv rest; do
                 [ -z "$tid" ] && continue
                 seqkit sliding -W {params.window_bp} -s {params.step_4x_bp} -g -j 4 "$fasta" \
-                    | awk -v tid="$tid" -v step={params.step_4x_bp} '
+                    | awk -v tid="$tid" -v step={params.step_4x_bp} -v win={params.window_bp} '
                         /^>/ {{
                             hdr = substr($1, 2);
                             pos = match(hdr, /_sliding:[0-9]+-[0-9]+$/);
@@ -100,11 +100,18 @@ rule stream_kraken_cr:
                             split(coords, c, "-");
                             s0 = c[1] - 1;
                             e0 = c[2] + 0;
+                            if ((e0 - s0) < win && contig == prev_contig && e0 == prev_e0) {{
+                                skip = 1;
+                                next
+                            }}
+                            skip = 0;
+                            prev_contig = contig;
+                            prev_e0 = e0;
                             widx = int(s0 / step);
                             print ">" tid "|" contig "|" widx "|" s0 "|" e0;
                             next
                         }}
-                        {{ print }}
+                        !skip {{ print }}
                     '
             done > "$FIFO_PATH"
             touch "$PRODUCER_OK"

@@ -150,6 +150,11 @@ def main() -> None:
     parser.add_argument("--n-bins", type=int, default=100, help="Number of bins B (default: 100)")
     parser.add_argument("--min-scale", type=float, default=0.3, help="Smallest bin scale factor (default: 0.3)")
     parser.add_argument("--max-scale", type=float, default=1.7, help="Largest bin scale factor (default: 1.7)")
+    parser.add_argument(
+        "--cleanup-filtered-fasta",
+        action="store_true",
+        help="Delete the full-genome filtered.fna file after extracting CR contigs to save disk space",
+    )
     parser.add_argument("--log", default=None, help="Log file path")
     args = parser.parse_args()
 
@@ -184,6 +189,9 @@ def main() -> None:
             ])
             for k in range(1, args.n_bins + 1):
                 writer.writerow([f"bin_{k:03d}", k, 0, 0, 0, 0, "NONE"])
+        if args.cleanup_filtered_fasta and Path(args.filtered_fasta).is_file():
+            Path(args.filtered_fasta).unlink()
+            logger.info(f"TaxID {args.taxid}: Cleaned up temporary filtered reference FASTA {args.filtered_fasta}.")
         return
 
     # 2. Sort contigs containing >= 1 CR from shortest total contig length to longest,
@@ -296,6 +304,10 @@ def main() -> None:
         writer = csv.DictWriter(bfh, fieldnames=fields, delimiter="\t")
         writer.writeheader()
         writer.writerows(bins_meta_rows)
+
+    if args.cleanup_filtered_fasta and Path(args.filtered_fasta).is_file():
+        Path(args.filtered_fasta).unlink()
+        logger.info(f"TaxID {args.taxid}: Cleaned up temporary filtered reference FASTA {args.filtered_fasta}.")
 
     logger.info(
         f"TaxID {args.taxid}: Wrote {global_seg_counter:,} CR segments across {args.n_bins} bins "

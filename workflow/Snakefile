@@ -43,28 +43,41 @@ if not SAMPLES:
     )
 
 # --- Dynamic SLURM Retry Resource Scaling Helpers --- #
-# Why we scale mem_mb and runtime with `attempt`:
-# Eukaryotic genomes vary in size by > 2 orders of magnitude (10 Mb fungi to > 3 Gb
-# vertebrates/plants), and eDNA read counts per taxon span 10^3 to > 5x10^7 pairs.
-# Scaling memory and walltime by +50% on each retry attempt (`retries: 5`) allows
-# baseline jobs to schedule quickly on Kebnekaise while automatically recovering
-# from SLURM OOM or TIMEOUT kills on giant genomes or high-read taxa.
+# Why we scale mem_mb and runtime geometrically with `attempt` and input size:
+# Eukaryotic genomes vary in size by > 2 orders of magnitude (10 Mb fungi to > 20 Gb
+# conifers), and eDNA read counts per taxon span 10^3 to > 5x10^7 pairs.
+# Combining an input-size heuristic on Attempt 1 with geometric retry scaling
+# (`1.7^(attempt-1)` for memory, `1.5^(attempt-1)` for runtime across `retries: 5`)
+# allows baseline jobs to schedule immediately on Kebnekaise while scaling up to
+# > 33 GB / > 150 GB on retries if SLURM kills a job for OOM or TIMEOUT.
 RES_CFG = config.get("resources", {})
 DEFAULT_RETRIES = int(RES_CFG.get("default_retries", 5))
+MEM_RETRY_BASE = float(RES_CFG.get("mem_retry_base", 1.7))
+RUNTIME_RETRY_BASE = float(RES_CFG.get("runtime_retry_base", 1.5))
 
 
 def get_threads(rule_key: str, default: int = 2) -> int:
     return int(RES_CFG.get(rule_key, {}).get("threads", default))
 
 
-def scale_mem_mb(rule_key: str, default_mb: int = 4000, scale: float = 0.5):
+def scale_mem_mb(rule_key: str, default_mb: int = 4000, input_mb_mult: float = 0.0):
     base = int(RES_CFG.get(rule_key, {}).get("mem_mb", default_mb))
-    return lambda wildcards, attempt: int(base * (1.0 + scale * (attempt - 1)))
+
+    def _mem(wildcards, attempt, input):
+        est_mb = base
+        if input_mb_mult > 0.0:
+            try:
+                est_mb = max(base, int(base / 2 + input.size_mb * input_mb_mult))
+            except Exception:
+                est_mb = base
+        return int(round(est_mb * (MEM_RETRY_BASE ** (attempt - 1))))
+
+    return _mem
 
 
-def scale_runtime(rule_key: str, default_min: int = 30, scale: float = 0.5):
+def scale_runtime(rule_key: str, default_min: int = 30):
     base = int(RES_CFG.get(rule_key, {}).get("runtime_min", default_min))
-    return lambda wildcards, attempt: f"{int(base * (1.0 + scale * (attempt - 1)))}m"
+    return lambda wildcards, attempt: f"{int(round(base * (RUNTIME_RETRY_BASE ** (attempt - 1))))}m"
 
 
 # --- Checkpoint Helper Functions --- #
