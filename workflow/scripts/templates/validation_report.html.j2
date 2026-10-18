@@ -11,17 +11,30 @@
       --text-main: #0f172a;
       --text-muted: #475569;
       --border: #e2e8f0;
-      --accent: #0f766e;
+      --accent: #059669;
+
+      /* VALIDATED types: shades of green */
       --clean-bg: #d1fae5;
       --clean-fg: #065f46;
-      --pruned-bg: #e0f2fe;
-      --pruned-fg: #075985;
-      --failed-bg: #fef3c7;
-      --failed-fg: #92400e;
+      --clean-border: #10b981;
+
+      --pruned-bg: #ccfbf1;
+      --pruned-fg: #0f766e;
+      --pruned-border: #14b8a6;
+
+      /* FAILED types: shades of red */
+      --failed-occupancy-bg: #fee2e2;
+      --failed-occupancy-fg: #991b1b;
+      --failed-occupancy-border: #ef4444;
+
+      --failed-corr-bg: #ffe4e6;
+      --failed-corr-fg: #9f1239;
+      --failed-corr-border: #f43f5e;
+
+      /* EXCLUDED / Missing data: shades of gray */
       --excluded-bg: #f1f5f9;
       --excluded-fg: #475569;
-      --danger-bg: #fee2e2;
-      --danger-fg: #991b1b;
+      --excluded-border: #cbd5e1;
     }
     * { box-sizing: border-box; }
     body {
@@ -35,7 +48,7 @@
       background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
       color: #ffffff;
       padding: 2rem 2.5rem;
-      border-bottom: 4px solid #0d9488;
+      border-bottom: 4px solid #059669;
     }
     header h1 {
       margin: 0 0 0.4rem 0;
@@ -59,15 +72,17 @@
     }
     .meta-bar strong { color: #e2e8f0; }
     .container {
-      max-width: 1480px;
+      max-width: 1520px;
       margin: 0 auto;
       padding: 1.75rem 2rem 3rem 2rem;
     }
+
+    /* KPI Cards with Tooltips */
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 1rem;
-      margin-bottom: 1.75rem;
+      margin-bottom: 1.5rem;
     }
     .kpi-card {
       background: var(--bg-card);
@@ -75,6 +90,13 @@
       border-radius: 10px;
       padding: 1.15rem 1.35rem;
       box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+      position: relative;
+      cursor: help;
+      transition: box-shadow 0.15s, transform 0.15s;
+    }
+    .kpi-card:hover {
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+      transform: translateY(-1px);
     }
     .kpi-label {
       font-size: 0.78rem;
@@ -89,6 +111,45 @@
       margin: 0.2rem 0;
     }
     .kpi-sub { font-size: 0.82rem; color: var(--text-muted); }
+
+    /* Tooltip styles */
+    [data-tooltip] {
+      position: relative;
+    }
+    [data-tooltip]:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 0.5rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.77rem;
+      font-weight: 400;
+      line-height: 1.35;
+      white-space: normal;
+      width: max-content;
+      max-width: 300px;
+      z-index: 1000;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.3);
+      pointer-events: none;
+      text-align: center;
+    }
+    [data-tooltip]:hover::before {
+      content: "";
+      position: absolute;
+      bottom: 110%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: #0f172a;
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    /* Section Cards */
     .section-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -110,6 +171,60 @@
       font-size: 1.18rem;
       font-weight: 700;
     }
+
+    /* Glossary Section */
+    .glossary-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 1.75rem;
+      overflow: hidden;
+    }
+    .glossary-summary {
+      padding: 0.9rem 1.35rem;
+      background: #f8fafc;
+      font-weight: 600;
+      font-size: 0.92rem;
+      color: #1e293b;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+    }
+    .glossary-summary:hover {
+      background: #f1f5f9;
+    }
+    .glossary-body {
+      padding: 1.25rem 1.35rem;
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 1rem;
+      font-size: 0.84rem;
+    }
+    .glossary-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      padding: 0.75rem 0.9rem;
+      background: #f8fafc;
+      border-radius: 8px;
+      border-left: 4px solid #cbd5e1;
+    }
+    .glossary-item.clean { border-left-color: var(--clean-border); }
+    .glossary-item.pruned { border-left-color: var(--pruned-border); }
+    .glossary-item.occupancy { border-left-color: var(--failed-occupancy-border); }
+    .glossary-item.correlation { border-left-color: var(--failed-corr-border); }
+    .glossary-item.excluded { border-left-color: var(--excluded-border); }
+    .glossary-item-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 700;
+    }
+
+    /* Controls Bar */
     .controls {
       display: flex;
       flex-wrap: wrap;
@@ -132,15 +247,81 @@
       font-size: 0.82rem;
       font-weight: 600;
       cursor: pointer;
+      transition: all 0.15s;
     }
+    .filter-btn:hover { background: #e2e8f0; }
     .filter-btn.active {
       background: #0f172a;
       color: #ffffff;
       border-color: #0f172a;
     }
-    .table-wrap {
-      overflow-x: auto;
+    .reset-btn {
+      padding: 0.42rem 0.8rem;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #475569;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
     }
+    .reset-btn:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+      border-color: #94a3b8;
+    }
+
+    /* Column Visibility Dropdown */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    .dropdown-btn {
+      padding: 0.42rem 0.8rem;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #334155;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.15s;
+    }
+    .dropdown-btn:hover { background: #f8fafc; border-color: #94a3b8; }
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 100%;
+      margin-top: 0.35rem;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+      padding: 0.75rem 0.9rem;
+      z-index: 100;
+      min-width: 240px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .dropdown-menu.show { display: block; }
+    .col-item {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      font-size: 0.8rem;
+      padding: 0.3rem 0;
+      cursor: pointer;
+      user-select: none;
+    }
+    .col-item input { cursor: pointer; }
+
+    /* Table Styles */
+    .table-wrap { overflow-x: auto; }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -158,22 +339,55 @@
       color: #334155;
       cursor: pointer;
       user-select: none;
+      transition: background 0.15s;
+    }
+    th:hover { background: #e2e8f0; }
+    th .sort-icon {
+      margin-left: 0.35rem;
+      font-size: 0.72rem;
+      color: #94a3b8;
     }
     tr:hover td { background-color: #f8fafc; }
     .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    /* Status Badges / Pills */
     .badge {
       display: inline-block;
-      padding: 0.2rem 0.55rem;
+      padding: 0.22rem 0.6rem;
       border-radius: 999px;
       font-size: 0.74rem;
       font-weight: 700;
       letter-spacing: 0.02em;
+      cursor: help;
+      text-decoration: none;
     }
-    .badge-VALIDATED_CLEAN { background: var(--clean-bg); color: var(--clean-fg); }
-    .badge-VALIDATED_PRUNED { background: var(--pruned-bg); color: var(--pruned-fg); }
-    .badge-FAILED_LOW_CORRELATION { background: var(--failed-bg); color: var(--failed-fg); }
-    .badge-FAILED_LOW_OCCUPANCY { background: var(--danger-bg); color: var(--danger-fg); }
-    .badge-EXCLUDED { background: var(--excluded-bg); color: var(--excluded-fg); }
+    .badge-VALIDATED_CLEAN {
+      background: var(--clean-bg);
+      color: var(--clean-fg);
+      border: 1px solid var(--clean-border);
+    }
+    .badge-VALIDATED_PRUNED {
+      background: var(--pruned-bg);
+      color: var(--pruned-fg);
+      border: 1px solid var(--pruned-border);
+    }
+    .badge-FAILED_LOW_OCCUPANCY {
+      background: var(--failed-occupancy-bg);
+      color: var(--failed-occupancy-fg);
+      border: 1px solid var(--failed-occupancy-border);
+    }
+    .badge-FAILED_LOW_CORRELATION {
+      background: var(--failed-corr-bg);
+      color: var(--failed-corr-fg);
+      border: 1px solid var(--failed-corr-border);
+    }
+    .badge-EXCLUDED {
+      background: var(--excluded-bg);
+      color: var(--excluded-fg);
+      border: 1px solid var(--excluded-border);
+    }
+
+    /* Species Cards */
     .species-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -200,7 +414,7 @@
     .reason-banner {
       padding: 0.65rem 0.95rem;
       background: #f1f5f9;
-      border-left: 4px solid #0f766e;
+      border-left: 4px solid #059669;
       border-radius: 4px;
       font-size: 0.88rem;
       margin-bottom: 1rem;
@@ -234,10 +448,10 @@
     details.pruned-details summary {
       cursor: pointer;
       font-weight: 600;
-      color: #0f766e;
+      color: #059669;
     }
     a.jump-link {
-      color: #0f766e;
+      color: #059669;
       text-decoration: none;
       font-weight: 600;
     }
@@ -245,6 +459,21 @@
   </style>
 </head>
 <body>
+  {% set status_tooltips = {
+    'VALIDATED_CLEAN': 'Validated Clean: Initial Pearson R >= 0.90 with positive slope across all 100 bins without any pruning. Validates uniform genome-wide eDNA coverage.',
+    'VALIDATED_PRUNED': 'Validated Pruned: Confirmed true positive after pruning 1 or more outlier bins (e.g. rDNA/repeats) while retaining >= 50% CR sequence (Final Pearson R >= 0.90, slope > 0).',
+    'FAILED_LOW_OCCUPANCY': 'Failed Low Occupancy: Pre-regression gate failed. Less than 50% of bins contain mapped read pairs or initial slope is non-positive (reads clustered in isolated spikes).',
+    'FAILED_LOW_CORRELATION': 'Failed Low Correlation: Reached the 50% CR sequence retention floor without attaining Pearson R >= 0.90 with a positive slope.',
+    'EXCLUDED_LOW_READ_COUNT': 'Excluded Low Read Count: Total clade reads across 516 weeks fell below the minimum statistical power cutoff (< 1,000 reads).',
+    'EXCLUDED_ORGANELLAR_ONLY': 'Excluded Organellar Only: Clade represented solely by mitochondrial or plastid sequences in database manifest; no nuclear reference assembly.',
+    'EXCLUDED_NCBI_UNAVAILABLE': 'Excluded NCBI Unavailable: All candidate nuclear assemblies for this clade are suppressed, withdrawn, or retired from live NCBI Datasets.',
+    'EXCLUDED_INSUFFICIENT_CONTIG_LENGTH': 'Excluded Short Contigs: Retaining contigs >= 1 kb left less than 100 kb of total sequence.',
+    'EXCLUDED_FILTERED_ASSEMBLY_PROPORTION': 'Excluded High Discard: Removing contigs < 1 kb discarded more than 50% of the total assembly sequence.',
+    'EXCLUDED_INSUFFICIENT_CR_LENGTH': 'Excluded Short CR: Total Classifiable Region length is insufficient to form 100 bins.',
+    'EXCLUDED_NO_ASSEMBLY_IN_DB': 'Excluded No Assembly: No reference genome found in the database manifest for this clade.',
+    'EXCLUDED_TAXID_NOT_FOUND': 'Excluded TaxID: Target taxon not found in the JolTax taxonomy tree.'
+  } %}
+
   <header>
     <h1>ValidateClassificationsSMK (v2) — High-Throughput eDNA Taxonomic Validation Report</h1>
     <p>SweBITS Project, Umeå University &middot; 10-Year Ljungbyhed Weekly Air-Filter Metagenomic Time Series (516 Samples, 2013–2022)</p>
@@ -258,34 +487,100 @@
   </header>
 
   <div class="container">
-    <!-- Executive Summary KPI Cards -->
+    <!-- Executive Summary KPI Cards with Tooltips -->
     <div class="kpi-grid">
-      <div class="kpi-card">
+      <div class="kpi-card" data-tooltip="All target species specified in config/targets.tsv evaluated against the 10-year Ljungbyhed monitoring series.">
         <div class="kpi-label">Total Target Taxa</div>
         <div class="kpi-value">{{ kpi.total_targets }}</div>
         <div class="kpi-sub">Tracked in config/targets.tsv</div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card" data-tooltip="Taxa meeting both the occupancy gate (>= 50% bins) and correlation threshold (Pearson R >= 0.90) with positive slope.">
         <div class="kpi-label">Total Validated (R &ge; {{ config.get('target_r', 0.90) }})</div>
-        <div class="kpi-value" style="color: #0f766e;">{{ kpi.validated_total }}</div>
+        <div class="kpi-value" style="color: #059669;">{{ kpi.validated_total }}</div>
         <div class="kpi-sub">{{ kpi.validated_clean }} Clean + {{ kpi.validated_pruned }} Pruned</div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card" data-tooltip="Genuine eDNA detections where mapped reads distribute linearly across all 100 CR bins without removing any genomic bins.">
         <div class="kpi-label">Validated Clean (0 Bins Pruned)</div>
         <div class="kpi-value" style="color: #065f46;">{{ kpi.validated_clean }}</div>
         <div class="kpi-sub">Initial R &ge; {{ config.get('target_r', 0.90) }} across all 100 bins</div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card" data-tooltip="Confirmed eDNA detections validated after excising 1 or more outlier bins (e.g. rDNA/repeats/artifacts) while retaining >= 50% CR length.">
         <div class="kpi-label">Validated After Outlier Pruning</div>
-        <div class="kpi-value" style="color: #0284c7;">{{ kpi.validated_pruned }}</div>
+        <div class="kpi-value" style="color: #0d9488;">{{ kpi.validated_pruned }}</div>
         <div class="kpi-sub">Reached R &ge; {{ config.get('target_r', 0.90) }} retaining &ge; 50% CR</div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card" data-tooltip="Taxa failing either Stage 5 regression gates (low occupancy or low correlation) or excluded during pre-flight checks.">
         <div class="kpi-label">Failed / Excluded</div>
-        <div class="kpi-value" style="color: #b45309;">{{ kpi.failed_total }} / {{ kpi.excluded_total }}</div>
+        <div class="kpi-value" style="color: #991b1b;">{{ kpi.failed_total }} / {{ kpi.excluded_total }}</div>
         <div class="kpi-sub">{{ kpi.failed_total }} Failed Regression &middot; {{ kpi.excluded_total }} Pre-Flight Excluded</div>
       </div>
     </div>
+
+    <!-- Validation Status Reference & Code Glossary -->
+    <details class="glossary-card">
+      <summary class="glossary-summary">
+        <span>📖 Validation Status Codes Reference &amp; Methodology Guide (Click to Expand / Collapse)</span>
+        <span style="font-size:0.8rem; color:#64748b;">Help on status codes</span>
+      </summary>
+      <div class="glossary-body">
+        <div class="glossary-item clean">
+          <div class="glossary-item-title">
+            <span class="badge badge-VALIDATED_CLEAN">VALIDATED_CLEAN</span>
+            <span style="color:#065f46;">(Shade of Green)</span>
+          </div>
+          <div><strong>Uniform genome-wide signal:</strong> Mapped eDNA reads track Classifiable Region length with initial Pearson \(R \ge 0.90\) and strictly positive slope (\(\beta_1 > 0\)) across all 100 bins with zero bins pruned. Confirms an authentic biological detection.</div>
+        </div>
+        <div class="glossary-item pruned">
+          <div class="glossary-item-title">
+            <span class="badge badge-VALIDATED_PRUNED">VALIDATED_PRUNED</span>
+            <span style="color:#0f766e;">(Shade of Green)</span>
+          </div>
+          <div><strong>Pruned biological validation:</strong> Reached \(R \ge 0.90\) and \(\beta_1 > 0\) after iteratively pruning \(\ge 1\) outlier bins (e.g. high-copy ribosomal arrays, mobile elements, or assembly contaminants) while retaining \(\ge 50\%\) of the total Classifiable Region sequence length.</div>
+        </div>
+        <div class="glossary-item occupancy">
+          <div class="glossary-item-title">
+            <span class="badge badge-FAILED_LOW_OCCUPANCY">FAILED_LOW_OCCUPANCY</span>
+            <span style="color:#991b1b;">(Shade of Red)</span>
+          </div>
+          <div><strong>Pre-regression occupancy gate failed:</strong> Less than 50% of the 100 bins contain \(\ge 1\) mapped read pair, or the initial slope is non-positive (\(\beta_1 \le 0\)). Characteristic of false-positive detections where reads pile into a few conserved locus spikes while the rest of the genome is empty.</div>
+        </div>
+        <div class="glossary-item correlation">
+          <div class="glossary-item-title">
+            <span class="badge badge-FAILED_LOW_CORRELATION">FAILED_LOW_CORRELATION</span>
+            <span style="color:#9f1239;">(Shade of Red)</span>
+          </div>
+          <div><strong>Correlation threshold not attained:</strong> Pruning reached the 50% CR sequence retention floor without reaching Pearson \(R \ge 0.90\) with a positive slope. The reads do not correlate linearly with classifiable genomic sequence.</div>
+        </div>
+        <div class="glossary-item excluded">
+          <div class="glossary-item-title">
+            <span class="badge badge-EXCLUDED">EXCLUDED_LOW_READ_COUNT</span>
+            <span style="color:#475569;">(Gray)</span>
+          </div>
+          <div><strong>Pre-flight statistical gate:</strong> Total clade reads across all 516 weekly samples was below the minimum cutoff (&lt; 1,000 reads), providing insufficient statistical power to populate 100 bins.</div>
+        </div>
+        <div class="glossary-item excluded">
+          <div class="glossary-item-title">
+            <span class="badge badge-EXCLUDED">EXCLUDED_ORGANELLAR_ONLY</span>
+            <span style="color:#475569;">(Gray)</span>
+          </div>
+          <div><strong>Organellar reference only:</strong> The clade is represented solely by mitochondrial or plastid sequences in the Kraken 2 database manifest, with no nuclear reference assembly available.</div>
+        </div>
+        <div class="glossary-item excluded">
+          <div class="glossary-item-title">
+            <span class="badge badge-EXCLUDED">EXCLUDED_NCBI_UNAVAILABLE</span>
+            <span style="color:#475569;">(Gray)</span>
+          </div>
+          <div><strong>Assembly withdrawn/suppressed:</strong> All candidate nuclear assemblies in the database manifest for this clade have been suppressed or retired on live NCBI Datasets.</div>
+        </div>
+        <div class="glossary-item excluded">
+          <div class="glossary-item-title">
+            <span class="badge badge-EXCLUDED">EXCLUDED_FILTER_GATES</span>
+            <span style="color:#475569;">(Gray)</span>
+          </div>
+          <div><strong>Assembly contig length gate:</strong> The draft assembly has insufficient contig length (discarding &lt; 1 kb contigs left &lt; 100 kb sequence or discarded &gt; 50% of the assembly).</div>
+        </div>
+      </div>
+    </details>
 
     <!-- Master Validation Summary Table -->
     <div class="section-card">
@@ -297,30 +592,59 @@
           <button class="filter-btn" onclick="setGroupFilter('VALIDATED', this)">Validated ({{ kpi.validated_total }})</button>
           <button class="filter-btn" onclick="setGroupFilter('FAILED', this)">Failed ({{ kpi.failed_total }})</button>
           <button class="filter-btn" onclick="setGroupFilter('EXCLUDED', this)">Excluded ({{ kpi.excluded_total }})</button>
+          
+          <!-- Column Visibility Dropdown -->
+          <div class="dropdown">
+            <button class="dropdown-btn" onclick="toggleDropdown(event)">Columns ▾</button>
+            <div id="colDropdown" class="dropdown-menu">
+              <div style="font-weight:700; margin-bottom:0.4rem; padding-bottom:0.3rem; border-bottom:1px solid #e2e8f0; font-size:0.8rem;">Toggle Columns</div>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="0" checked onchange="toggleColumn(0, this.checked)"> TaxID</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="1" checked onchange="toggleColumn(1, this.checked)"> Species</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="2" checked onchange="toggleColumn(2, this.checked)"> Status</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="3" checked onchange="toggleColumn(3, this.checked)"> Clade Reads</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="4" checked onchange="toggleColumn(4, this.checked)"> Chosen Assembly</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="5" checked onchange="toggleColumn(5, this.checked)"> Level</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="6" checked onchange="toggleColumn(6, this.checked)"> Kept Assembly (bp)</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="7" checked onchange="toggleColumn(7, this.checked)"> Discarded bp %</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="8" checked onchange="toggleColumn(8, this.checked)"> 2x CR (bp)</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="9" checked onchange="toggleColumn(9, this.checked)"> 2x CR %</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="10" checked onchange="toggleColumn(10, this.checked)"> Occupied Bins</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="11" checked onchange="toggleColumn(11, this.checked)"> Initial R</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="12" checked onchange="toggleColumn(12, this.checked)"> Final R</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="13" checked onchange="toggleColumn(13, this.checked)"> Final &rho;</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="14" checked onchange="toggleColumn(14, this.checked)"> Bins Pruned</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="15" checked onchange="toggleColumn(15, this.checked)"> Retained CR %</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="16" checked onchange="toggleColumn(16, this.checked)"> Retained Reads %</label>
+              <label class="col-item"><input type="checkbox" class="col-toggle-checkbox" value="17" checked onchange="toggleColumn(17, this.checked)"> Status Reason</label>
+            </div>
+          </div>
+
+          <!-- Reset Button -->
+          <button class="reset-btn" onclick="resetTable()">↺ Reset</button>
         </div>
       </div>
       <div class="table-wrap">
         <table id="masterTable">
           <thead>
             <tr>
-              <th>TaxID</th>
-              <th>Species</th>
-              <th>Status</th>
-              <th class="num">Clade Reads</th>
-              <th>Chosen Assembly</th>
-              <th>Level</th>
-              <th class="num">Kept Assembly (bp)</th>
-              <th class="num">Discarded bp %</th>
-              <th class="num">2x CR (bp)</th>
-              <th class="num">2x CR %</th>
-              <th class="num">Occupied Bins</th>
-              <th class="num">Initial R</th>
-              <th class="num">Final R</th>
-              <th class="num">Final &rho;</th>
-              <th class="num">Bins Pruned</th>
-              <th class="num">Retained CR %</th>
-              <th class="num">Retained Reads %</th>
-              <th>Status Reason</th>
+              <th onclick="sortTable(0)">TaxID <span class="sort-icon">⇅</span></th>
+              <th onclick="sortTable(1)">Species <span class="sort-icon">⇅</span></th>
+              <th onclick="sortTable(2)">Status <span class="sort-icon">⇅</span></th>
+              <th class="num" onclick="sortTable(3)">Clade Reads <span class="sort-icon">⇅</span></th>
+              <th onclick="sortTable(4)">Chosen Assembly <span class="sort-icon">⇅</span></th>
+              <th onclick="sortTable(5)">Level <span class="sort-icon">⇅</span></th>
+              <th class="num" onclick="sortTable(6)">Kept Assembly (bp) <span class="sort-icon">⇅</span></th>
+              <th class="num" onclick="sortTable(7)">Discarded bp % <span class="sort-icon">⇅</span></th>
+              <th class="num" onclick="sortTable(8)">2x CR (bp) <span class="sort-icon">⇅</span></th>
+              <th class="num" onclick="sortTable(9)">2x CR % <span class="sort-icon">⇅</span></th>
+              <th class="num" onclick="sortTable(10)">Occupied Bins <span class="sort-icon">⇅</span></th>
+              <th class="num" onclick="sortTable(11)">Initial R <span class="sort-icon">⇅</span></th>
+              <th class="num" onclick="sortTable(12)">Final R <span class="sort-icon">⇅</span></th>
+              <th class="num" onclick="sortTable(13)">Final &rho; <span class="sort-icon">⇅</span></th>
+              <th class="num" onclick="sortTable(14)">Bins Pruned <span class="sort-icon">⇅</span></th>
+              <th class="num" onclick="sortTable(15)">Retained CR % <span class="sort-icon">⇅</span></th>
+              <th class="num" onclick="sortTable(16)">Retained Reads % <span class="sort-icon">⇅</span></th>
+              <th onclick="sortTable(17)">Status Reason <span class="sort-icon">⇅</span></th>
             </tr>
           </thead>
           <tbody>
@@ -330,7 +654,7 @@
               <td><a class="jump-link" href="#species-{{ sp.t_id }}"><em>{{ sp.scientific_name }}</em></a>{% if sp.common_name %} <span style="color:#64748b;">({{ sp.common_name }})</span>{% endif %}</td>
               <td>
                 {% set badge_cls = sp.validation_status if sp.validation_status.startswith('VALIDATED') or sp.validation_status.startswith('FAILED') else 'EXCLUDED' %}
-                <span class="badge badge-{{ badge_cls }}">{{ sp.validation_status }}</span>
+                <span class="badge badge-{{ badge_cls }}" data-tooltip="{{ status_tooltips.get(sp.validation_status, 'Validation status: ' ~ sp.validation_status) }}">{{ sp.validation_status }}</span>
               </td>
               <td class="num">{{ "{:,}".format(sp.total_clade_reads) }}</td>
               <td><code>{{ sp.chosen_accession }}</code></td>
@@ -365,7 +689,7 @@
           &mdash; <span style="font-weight:500; color:#64748b;">TaxID {{ sp.t_id }} &middot; {{ sp.t_phylum or sp.t_domain }} / {{ sp.t_family }}</span>
         </h3>
         {% set badge_cls = sp.validation_status if sp.validation_status.startswith('VALIDATED') or sp.validation_status.startswith('FAILED') else 'EXCLUDED' %}
-        <span class="badge badge-{{ badge_cls }}">{{ sp.validation_status }}</span>
+        <span class="badge badge-{{ badge_cls }}" data-tooltip="{{ status_tooltips.get(sp.validation_status, 'Validation status: ' ~ sp.validation_status) }}">{{ sp.validation_status }}</span>
       </div>
       <div class="species-card-body">
         <div class="reason-banner">
@@ -407,7 +731,7 @@
         </div>
 
         {% if sp.plot_data_uri %}
-        <img class="diagnostic-img" src="{{ sp.plot_data_uri }}" alt="Diagnostic 3-panel plot for {{ sp.scientific_name }}" />
+        <img class="diagnostic-img" src="{{ sp.plot_data_uri }}" alt="Diagnostic 4-panel plot for {{ sp.scientific_name }}" />
         {% endif %}
 
         {% if sp.pruned_steps %}
@@ -489,12 +813,51 @@
 
   <script>
     let currentGroup = 'ALL';
+    let sortColIndex = -1;
+    let sortAscending = true;
+    let originalRows = [];
+
+    document.addEventListener("DOMContentLoaded", function() {
+      const tbody = document.querySelector("#masterTable tbody");
+      if (tbody) {
+        originalRows = Array.from(tbody.querySelectorAll("tr"));
+      }
+    });
+
+    // Close column dropdown when clicking outside
+    window.addEventListener('click', function(e) {
+      const dropdown = document.getElementById('colDropdown');
+      if (dropdown && !e.target.closest('.dropdown')) {
+        dropdown.classList.remove('show');
+      }
+    });
+
+    function toggleDropdown(e) {
+      e.stopPropagation();
+      const dropdown = document.getElementById('colDropdown');
+      if (dropdown) {
+        dropdown.classList.toggle('show');
+      }
+    }
+
+    function toggleColumn(colIndex, isVisible) {
+      const table = document.getElementById("masterTable");
+      if (!table) return;
+      const th = table.querySelectorAll("thead th")[colIndex];
+      if (th) th.style.display = isVisible ? "" : "none";
+      table.querySelectorAll("tbody tr").forEach(tr => {
+        const td = tr.children[colIndex];
+        if (td) td.style.display = isVisible ? "" : "none";
+      });
+    }
+
     function setGroupFilter(group, btn) {
       currentGroup = group;
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      if (btn) btn.classList.add('active');
       filterTable();
     }
+
     function filterTable() {
       const q = (document.getElementById('speciesSearch').value || '').toLowerCase();
       document.querySelectorAll('#masterTable tbody tr').forEach(tr => {
@@ -511,6 +874,84 @@
         const matchTxt = !q || txt.includes(q);
         card.style.display = (matchGrp && matchTxt) ? '' : 'none';
       });
+    }
+
+    function sortTable(colIndex) {
+      const table = document.getElementById("masterTable");
+      if (!table) return;
+      const tbody = table.querySelector("tbody");
+      const rows = Array.from(tbody.querySelectorAll("tr"));
+
+      if (sortColIndex === colIndex) {
+        sortAscending = !sortAscending;
+      } else {
+        sortColIndex = colIndex;
+        sortAscending = true;
+      }
+
+      rows.sort((a, b) => {
+        const aCell = a.children[colIndex];
+        const bCell = b.children[colIndex];
+        const aVal = aCell ? aCell.innerText.trim() : "";
+        const bVal = bCell ? bCell.innerText.trim() : "";
+
+        // Parse numeric strings (stripping commas, percentages)
+        const aNum = parseFloat(aVal.replace(/,/g, '').replace(/%/g, ''));
+        const bNum = parseFloat(bVal.replace(/,/g, '').replace(/%/g, ''));
+
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return sortAscending ? aNum - bNum : bNum - aNum;
+        }
+        return sortAscending ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      });
+
+      rows.forEach(r => tbody.appendChild(r));
+      updateSortIndicators();
+    }
+
+    function updateSortIndicators() {
+      const headers = document.querySelectorAll("#masterTable thead th");
+      headers.forEach((th, idx) => {
+        const icon = th.querySelector(".sort-icon");
+        if (icon) {
+          if (idx === sortColIndex) {
+            icon.innerText = sortAscending ? "▲" : "▼";
+            icon.style.color = "#0f172a";
+          } else {
+            icon.innerText = "⇅";
+            icon.style.color = "#94a3b8";
+          }
+        }
+      });
+    }
+
+    function resetTable() {
+      // 1. Reset search text
+      document.getElementById("speciesSearch").value = "";
+
+      // 2. Reset group filter buttons
+      currentGroup = 'ALL';
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      const allBtn = document.querySelector('.filter-btn');
+      if (allBtn) allBtn.classList.add('active');
+
+      // 3. Reset column visibility
+      document.querySelectorAll('.col-toggle-checkbox').forEach(cb => {
+        cb.checked = true;
+        toggleColumn(parseInt(cb.value), true);
+      });
+
+      // 4. Reset sorting order to original
+      sortColIndex = -1;
+      sortAscending = true;
+      const tbody = document.querySelector("#masterTable tbody");
+      if (tbody && originalRows.length > 0) {
+        originalRows.forEach(r => tbody.appendChild(r));
+      }
+      updateSortIndicators();
+
+      // 5. Re-filter
+      filterTable();
     }
   </script>
 </body>

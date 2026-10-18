@@ -51,22 +51,22 @@ from common_ledger import ValidationStatus, setup_logger
 
 STATUS_PALETTE: Dict[str, Dict[str, str]] = {
     ValidationStatus.VALIDATED_CLEAN: {
-        "primary": "#0f766e",   # Deep teal
-        "fill": "#99f6e4",
+        "primary": "#059669",   # Emerald green
+        "fill": "#a7f3d0",
         "badge_bg": "#d1fae5",
         "badge_fg": "#065f46",
     },
     ValidationStatus.VALIDATED_PRUNED: {
-        "primary": "#0284c7",   # Ocean blue
-        "fill": "#bae6fd",
-        "badge_bg": "#e0f2fe",
-        "badge_fg": "#075985",
+        "primary": "#0d9488",   # Teal / sea green
+        "fill": "#99f6e4",
+        "badge_bg": "#ccfbf1",
+        "badge_fg": "#115e59",
     },
     ValidationStatus.FAILED_LOW_CORRELATION: {
-        "primary": "#d97706",   # Amber
-        "fill": "#fde68a",
-        "badge_bg": "#fef3c7",
-        "badge_fg": "#92400e",
+        "primary": "#e11d48",   # Rose red
+        "fill": "#fecdd3",
+        "badge_bg": "#ffe4e6",
+        "badge_fg": "#9f1239",
     },
     ValidationStatus.FAILED_LOW_OCCUPANCY: {
         "primary": "#dc2626",   # Crimson red
@@ -160,23 +160,24 @@ def main() -> None:
         "grid.linewidth": 0.6,
     })
 
-    fig = plt.figure(figsize=(15, 9.5), dpi=300, facecolor="white")
+    fig = plt.figure(figsize=(16.5, 11), dpi=300, facecolor="white")
     gs = gridspec.GridSpec(
         2, 2,
         figure=fig,
-        height_ratios=[1.15, 1.0],
-        width_ratios=[1.15, 1.0],
-        hspace=0.34,
-        wspace=0.24,
+        height_ratios=[1.0, 1.0],
+        width_ratios=[1.35, 1.0],
+        hspace=0.36,
+        wspace=0.25,
         left=0.06,
-        right=0.95,
-        top=0.88,
+        right=0.96,
+        top=0.85,
         bottom=0.07,
     )
 
     ax_scatter = fig.add_subplot(gs[0, 0])
     ax_traj = fig.add_subplot(gs[0, 1])
-    ax_ts = fig.add_subplot(gs[1, :])
+    ax_ts = fig.add_subplot(gs[1, 0])
+    ax_scatter_1to1 = fig.add_subplot(gs[1, 1])
 
     # --- Header Banner --- #
     sci_name = metrics.get("species_name", f"TaxID {args.taxid}")
@@ -185,7 +186,7 @@ def main() -> None:
         fontsize=15,
         fontweight="bold",
         color="#0f172a",
-        y=0.96,
+        y=0.965,
     )
     subtitle_str = (
         f"Total CR: {metrics.get('total_cr_bp', 0):,} bp ({metrics.get('retained_cr_pct', 0):.1f}% retained)   |   "
@@ -193,7 +194,7 @@ def main() -> None:
         f"Initial R = {metrics.get('initial_pearson_r', 0):.3f}  →  Final R = {metrics.get('final_pearson_r', 0):.3f} "
         f"(ρ = {metrics.get('final_spearman_rho', 0):.3f}, {metrics.get('bins_pruned_count', 0)} bins pruned)"
     )
-    fig.text(0.5, 0.922, subtitle_str, ha="center", va="center", fontsize=10, color="#334155")
+    fig.text(0.5, 0.925, subtitle_str, ha="center", va="center", fontsize=10, color="#334155")
 
     # ======================================================================== #
     # PANEL A: Regression Scatter Plot (Retained vs. Pruned Bins + 95% CI)
@@ -296,8 +297,13 @@ def main() -> None:
     ax_scatter.set_xlabel("Bin Classifiable Region Length (bp)", fontsize=9.5, color="#1e293b")
     ax_scatter.set_ylabel("Mapped eDNA Read Pairs", fontsize=9.5, color="#1e293b")
     ax_scatter.xaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{int(v):,}"))
-    ax_scatter.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{int(v):,}"))
-    ax_scatter.legend(loc="upper left", frameon=True, facecolor="white", framealpha=0.9, fontsize=8)
+    # Headroom and adaptive legend placement to prevent covering outlier points (e.g. short-CR bin in Ilex)
+    y_max_val = float(np.max(y_all)) if len(y_all) > 0 else 1.0
+    x_med_val = float(np.median(x_all)) if len(x_all) > 0 else 1.0
+    ax_scatter.set_ylim(bottom=min(-0.02 * y_max_val, 0.0), top=y_max_val * 1.25)
+    upper_left_crowded = bool(np.any((x_all <= x_med_val) & (y_all > 0.40 * y_max_val)))
+    legend_loc = "upper right" if upper_left_crowded else "upper left"
+    ax_scatter.legend(loc=legend_loc, frameon=True, facecolor="white", framealpha=0.88, fontsize=8)
 
     # ======================================================================== #
     # PANEL B: Dual-Trace Outlier Pruning Trajectory Curve
@@ -356,7 +362,11 @@ def main() -> None:
     min_r_plot = min(0.0, min(r_trace) - 0.05) if r_trace else 0.0
     ax_traj.set_ylim(min_r_plot, 1.03)
     ax_traj_right.set_ylim(max(0.0, min(cr_pct_trace) - 10.0) if cr_pct_trace else 0.0, 105.0)
-    ax_traj.xaxis.set_major_locator(mticker.MaxNLocator(integer=True))
+    if iters and max(iters) == 0:
+        ax_traj.set_xlim(-0.4, 1.0)
+        ax_traj.set_xticks([0])
+    else:
+        ax_traj.xaxis.set_major_locator(mticker.MaxNLocator(integer=True))
 
     # Combine legends from both axes
     lines_all = line_r + [thresh_r] + line_cr + [thresh_cr]
@@ -395,7 +405,7 @@ def main() -> None:
         raw_reads,
         color="#94a3b8",
         alpha=0.30,
-        label=f"Raw Kraken 2 Clade Reads (sum = {int(np.sum(raw_reads)):,})",
+        label=f"Raw Kraken 2 Reads (sum = {int(np.sum(raw_reads)):,})",
         zorder=1,
     )
     ax_ts.plot(
@@ -412,7 +422,7 @@ def main() -> None:
         color="#38bdf8",
         linewidth=1.0,
         alpha=0.85,
-        label=f"All-CR Mapped Reads (sum = {int(np.sum(all_cr_reads)):,})",
+        label=f"All-CR Mapped (sum = {int(np.sum(all_cr_reads)):,})",
         zorder=3,
     )
     ax_ts.plot(
@@ -420,12 +430,12 @@ def main() -> None:
         clean_reads,
         color=palette["primary"],
         linewidth=1.5,
-        label=f"Validated Clean-Bin Reads (sum = {int(np.sum(clean_reads)):,})",
+        label=f"Validated Clean (sum = {int(np.sum(clean_reads)):,})",
         zorder=4,
     )
 
     ax_ts.set_title(
-        "C. 10-Year Weekly eDNA Time Series (516 Weeks, 2013–2022): Raw Kraken 2 vs. Validated Clean-Bin Signal",
+        "C. 10-Year Weekly eDNA Time Series (2013–2022)",
         fontsize=11,
         fontweight="bold",
         color="#0f172a",
@@ -441,6 +451,56 @@ def main() -> None:
     ax_ts.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{int(v):,}"))
     ax_ts.legend(loc="upper right", frameon=True, facecolor="white", framealpha=0.92, fontsize=8.5)
 
+    # ======================================================================== #
+    # PANEL D: 1-to-1 Scatter Plot (Raw Kraken 2 vs. Validated Clean-Bin Reads)
+    # ======================================================================== #
+    ax_scatter_1to1.grid(True, alpha=0.7, zorder=0)
+
+    max_xy = max(10.0, float(np.max(raw_reads)) if len(raw_reads) > 0 else 0.0, float(np.max(clean_reads)) if len(clean_reads) > 0 else 0.0)
+    axis_limit = max_xy * 1.08
+
+    # 1:1 Identity Line (dashed slate)
+    ax_scatter_1to1.plot(
+        [0, axis_limit],
+        [0, axis_limit],
+        linestyle="--",
+        linewidth=1.4,
+        color="#94a3b8",
+        label="1:1 Identity (Y = X)",
+        zorder=2,
+    )
+
+    # 516 weekly scatter points
+    ax_scatter_1to1.scatter(
+        raw_reads,
+        clean_reads,
+        s=30,
+        c=palette["primary"],
+        edgecolors="white",
+        linewidths=0.5,
+        alpha=0.72,
+        label=f"Weekly Samples (n={len(raw_reads)})",
+        zorder=3,
+    )
+
+    ax_scatter_1to1.set_xlim(0, axis_limit)
+    ax_scatter_1to1.set_ylim(0, axis_limit)
+    ax_scatter_1to1.set_title(
+        "D. Raw Kraken 2 vs. Validated Reads (516 Weeks)",
+        fontsize=11,
+        fontweight="bold",
+        color="#0f172a",
+        loc="left",
+        pad=8,
+    )
+    ax_scatter_1to1.set_xlabel("Weekly Raw Kraken 2 Clade Reads", fontsize=9.5, color="#1e293b")
+    ax_scatter_1to1.set_ylabel("Weekly Validated Clean-Bin Reads", fontsize=9.5, color="#1e293b")
+    ax_scatter_1to1.xaxis.set_major_locator(mticker.MaxNLocator(nbins=5))
+    ax_scatter_1to1.yaxis.set_major_locator(mticker.MaxNLocator(nbins=5))
+    ax_scatter_1to1.xaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{int(v):,}"))
+    ax_scatter_1to1.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{int(v):,}"))
+    ax_scatter_1to1.legend(loc="upper left", frameon=True, facecolor="white", framealpha=0.88, fontsize=8)
+
     # Save PNG and PDF
     out_png = Path(args.out_png)
     out_pdf = Path(args.out_pdf)
@@ -451,7 +511,7 @@ def main() -> None:
     fig.savefig(out_pdf)
     plt.close(fig)
 
-    logger.info(f"Saved 3-panel diagnostic figure for TaxID {args.taxid} to {out_png.name} and {out_pdf.name}")
+    logger.info(f"Saved 4-panel diagnostic figure for TaxID {args.taxid} to {out_png.name} and {out_pdf.name}")
 
 
 if __name__ == "__main__":
