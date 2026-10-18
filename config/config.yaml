@@ -100,7 +100,7 @@ resources:
     runtime_min: 30
   extract_sample_reads:
     threads: 4
-    mem_mb: 8000
+    mem_mb: 16000
     runtime_min: 60
   merge_species_fastq:
     threads: 4
@@ -117,8 +117,8 @@ resources:
     runtime_min: 30
   map_edna_to_cr:
     threads: 8
-    mem_mb: 16000
-    runtime_min: 90
+    mem_mb: 32000
+    runtime_min: 120
   validate_and_regress:
     threads: 2
     mem_mb: 8000

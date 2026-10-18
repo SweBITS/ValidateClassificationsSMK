@@ -38,9 +38,11 @@ import csv
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import polars as pl
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common_ledger import sample_id_to_year_week, setup_logger
@@ -63,6 +65,22 @@ ALIGNMENT_SCHEMA = {
     "nm": pl.Int32,
     "mismatch_frac": pl.Float64,
 }
+
+PYARROW_SCHEMA = pa.schema([
+    ("read_id", pa.string()),
+    ("sample_id", pa.string()),
+    ("year_week", pa.string()),
+    ("mate", pa.int8()),
+    ("bin_id", pa.string()),
+    ("cr_id", pa.string()),
+    ("source_contig", pa.string()),
+    ("mapq", pa.int32()),
+    ("qlen", pa.int32()),
+    ("aligned_bp", pa.int32()),
+    ("align_frac", pa.float64()),
+    ("nm", pa.int32()),
+    ("mismatch_frac", pa.float64()),
+])
 
 
 def parse_cigar_qlen_and_sclen(cigar: str, seq_str: str) -> Tuple[int, int]:
@@ -157,7 +175,7 @@ def main() -> None:
     failed_mismatch_frac = 0
     passing_records = 0
 
-    # Columnar buffers for Polars DataFrame construction
+    # Columnar buffers for streaming PyArrow Parquet writer
     col_read_id: List[str] = []
     col_sample_id: List[str] = []
     col_year_week: List[str] = []
@@ -171,6 +189,47 @@ def main() -> None:
     col_align_frac: List[float] = []
     col_nm: List[int] = []
     col_mismatch_frac: List[float] = []
+
+    out_parquet = Path(args.out_parquet)
+    out_parquet.parent.mkdir(parents=True, exist_ok=True)
+    writer = pq.ParquetWriter(out_parquet, PYARROW_SCHEMA, compression="zstd", compression_level=3)
+    seen_read_ids: Set[str] = set()
+
+    def flush_batch() -> None:
+        if not col_read_id:
+            return
+        batch_table = pa.Table.from_arrays(
+            [
+                pa.array(col_read_id, type=pa.string()),
+                pa.array(col_sample_id, type=pa.string()),
+                pa.array(col_year_week, type=pa.string()),
+                pa.array(col_mate, type=pa.int8()),
+                pa.array(col_bin_id, type=pa.string()),
+                pa.array(col_cr_id, type=pa.string()),
+                pa.array(col_contig, type=pa.string()),
+                pa.array(col_mapq, type=pa.int32()),
+                pa.array(col_qlen, type=pa.int32()),
+                pa.array(col_aligned_bp, type=pa.int32()),
+                pa.array(col_align_frac, type=pa.float64()),
+                pa.array(col_nm, type=pa.int32()),
+                pa.array(col_mismatch_frac, type=pa.float64()),
+            ],
+            schema=PYARROW_SCHEMA,
+        )
+        writer.write_table(batch_table)
+        col_read_id.clear()
+        col_sample_id.clear()
+        col_year_week.clear()
+        col_mate.clear()
+        col_bin_id.clear()
+        col_cr_id.clear()
+        col_contig.clear()
+        col_mapq.clear()
+        col_qlen.clear()
+        col_aligned_bp.clear()
+        col_align_frac.clear()
+        col_nm.clear()
+        col_mismatch_frac.clear()
 
     min_mapq = args.min_mapq
     min_align_frac = args.min_align_frac
@@ -246,31 +305,14 @@ def main() -> None:
         col_align_frac.append(round(align_frac, 6))
         col_nm.append(nm)
         col_mismatch_frac.append(round(mismatch_frac, 6))
+        seen_read_ids.add(read_id)
 
-    df = pl.DataFrame(
-        {
-            "read_id": col_read_id,
-            "sample_id": col_sample_id,
-            "year_week": col_year_week,
-            "mate": col_mate,
-            "bin_id": col_bin_id,
-            "cr_id": col_cr_id,
-            "source_contig": col_contig,
-            "mapq": col_mapq,
-            "qlen": col_qlen,
-            "aligned_bp": col_aligned_bp,
-            "align_frac": col_align_frac,
-            "nm": col_nm,
-            "mismatch_frac": col_mismatch_frac,
-        },
-        schema=ALIGNMENT_SCHEMA,
-    )
+        if len(col_read_id) >= 200_000:
+            flush_batch()
 
-    out_parquet = Path(args.out_parquet)
-    out_parquet.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(out_parquet)
-
-    unique_read_pairs = df["read_id"].n_unique() if len(df) > 0 else 0
+    flush_batch()
+    writer.close()
+    unique_read_pairs = len(seen_read_ids)
 
     out_stats = Path(args.out_stats_tsv)
     out_stats.parent.mkdir(parents=True, exist_ok=True)
