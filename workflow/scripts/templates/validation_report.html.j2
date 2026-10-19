@@ -517,28 +517,28 @@
             <span class="badge badge-VALIDATED_CLEAN">VALIDATED_CLEAN</span>
             <span style="color:#064e3b; font-size:0.75rem; font-weight:600;">(Deep Green)</span>
           </div>
-          <div><strong>Uniform genome-wide signal:</strong> Mapped eDNA reads track Classifiable Region length with initial Pearson \(R \ge 0.90\) and strictly positive slope (\(\beta_1 > 0\)) across all 100 bins with zero bins pruned. Confirms an authentic biological detection.</div>
+          <div><strong>Uniform genome-wide signal:</strong> Mapped eDNA reads track Classifiable Region length with initial Pearson <i>R</i> &ge; 0.90 and strictly positive slope (&beta;<sub>1</sub> &gt; 0) across all 100 bins with zero bins pruned. Confirms an authentic biological detection.</div>
         </div>
         <div class="glossary-item pruned">
           <div class="glossary-item-title">
             <span class="badge badge-VALIDATED_PRUNED">VALIDATED_PRUNED</span>
             <span style="color:#047857; font-size:0.75rem; font-weight:600;">(Lighter Green)</span>
           </div>
-          <div><strong>Pruned biological validation:</strong> Reached \(R \ge 0.90\) and \(\beta_1 > 0\) after iteratively pruning \(\ge 1\) outlier bins (e.g. high-copy ribosomal arrays, mobile elements, or assembly contaminants) while retaining \(\ge 50\%\) of the total Classifiable Region sequence length.</div>
+          <div><strong>Pruned biological validation:</strong> Reached <i>R</i> &ge; 0.90 and &beta;<sub>1</sub> &gt; 0 after iteratively pruning &ge; 1 outlier bins (e.g. high-copy ribosomal arrays, mobile elements, or assembly contaminants) while retaining &ge; 50% of the total Classifiable Region sequence length.</div>
         </div>
         <div class="glossary-item occupancy">
           <div class="glossary-item-title">
             <span class="badge badge-FAILED_LOW_OCCUPANCY">FAILED_LOW_OCCUPANCY</span>
             <span style="color:#991b1b; font-size:0.75rem; font-weight:600;">(Red)</span>
           </div>
-          <div><strong>Pre-regression occupancy gate failed:</strong> Less than 50% of the 100 bins contain \(\ge 1\) mapped read pair, or the initial slope is non-positive (\(\beta_1 \le 0\)). Characteristic of false-positive detections where reads pile into a few conserved locus spikes while the rest of the genome is empty.</div>
+          <div><strong>Pre-regression occupancy gate failed:</strong> Less than 50% of the 100 bins contain &ge; 1 mapped read pair, or the initial slope is non-positive (&beta;<sub>1</sub> &le; 0). Characteristic of false-positive detections where reads pile into a few conserved locus spikes while the rest of the genome is empty.</div>
         </div>
         <div class="glossary-item correlation">
           <div class="glossary-item-title">
             <span class="badge badge-FAILED_LOW_CORRELATION">FAILED_LOW_CORRELATION</span>
             <span style="color:#991b1b; font-size:0.75rem; font-weight:600;">(Red)</span>
           </div>
-          <div><strong>Correlation threshold not attained:</strong> Pruning reached the 50% CR sequence retention floor without reaching Pearson \(R \ge 0.90\) with a positive slope. The reads do not correlate linearly with classifiable genomic sequence.</div>
+          <div><strong>Correlation threshold not attained:</strong> Pruning reached the 50% CR sequence retention floor without reaching Pearson <i>R</i> &ge; 0.90 with a positive slope. The reads do not correlate linearly with classifiable genomic sequence.</div>
         </div>
         <div class="glossary-item excluded">
           <div class="glossary-item-title">
