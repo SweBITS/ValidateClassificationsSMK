@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-generate_species_plots.py — Stage 5: Publication-Grade 3-Panel Diagnostic Figure Generator
+generate_species_plots.py — Stage 5: Publication-Grade 4-Panel Diagnostic Figure Generator
 ==========================================================================================
 
 WHY THIS SCRIPT EXISTS:
 -----------------------
 Summary correlation numbers alone cannot reveal *why* a putative eDNA detection succeeded
 or failed validation. A visual diagnostic figure for each target species allows researchers
-and manuscript reviewers to immediately inspect three complementary lines of evidence:
+and manuscript reviewers to immediately inspect four complementary lines of evidence:
 
   - **Panel A (Genomic Uniformity & Outlier Regression Scatter)**:
     Plots Mapped eDNA Read Pairs ($Y$) against Bin Classifiable Region Length ($X$) across
@@ -27,6 +27,10 @@ and manuscript reviewers to immediately inspect three complementary lines of evi
     Clean-Bin Reads across the 516-week Ljungbyhed monitoring series, revealing whether
     seasonal ecological phenology is preserved or if sporadic false-positive spikes are
     eliminated after removing artifact bins.
+
+  - **Panel D (1-to-1 Weekly Sample Correlation, 516 Weeks)**:
+    Plots Weekly Validated Clean-Bin Reads against Weekly Raw Kraken 2 Clade Reads across
+    all 516 monitoring weeks relative to the 1:1 identity line ($Y = X$).
 """
 
 import argparse
@@ -118,7 +122,7 @@ def compute_ols_ci_band(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Stage 5: Generate 3-panel publication diagnostic plot (PNG + PDF) for a target species."
+        description="Stage 5: Generate 4-panel publication diagnostic plot (PNG + PDF) for a target species."
     )
     parser.add_argument("--taxid", type=int, required=True, help="Target species TaxID")
     parser.add_argument("--bin-regression-tsv", required=True, help="Path to {t_id}.bin_regression_data.tsv")

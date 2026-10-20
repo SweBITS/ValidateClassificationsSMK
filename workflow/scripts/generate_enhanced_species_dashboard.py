@@ -669,7 +669,7 @@ def fmt_bp(bp: float) -> str:
     return f"{int(round(bp)):,} bp"
 
 
-def render_widescreen_9panel_figure(
+def render_10panel_figure(
     data: Dict[str, Any],
     out_png: Path,
     out_pdf: Path,
@@ -677,7 +677,7 @@ def render_widescreen_9panel_figure(
     min_retained_cr_frac: float = 0.50,
 ) -> None:
     """
-    Render the widescreen (32.0 x 18.2 in, 300 DPI) 10-panel diagnostic dashboard.
+    Render the 10-panel diagnostic dashboard (`{t_id}.diagnostic_10panel.{png,pdf}`, 32.0 x 18.2 in, 300 DPI).
     Uses a unified 3x4 GridSpec so that:
       - Panel A is the exact same width as Panel C and Panel G (Col 0)
       - Panel B is the exact same width as Panel F (Col 1)
@@ -1713,24 +1713,24 @@ def main() -> None:
             species_list.append((int(tid_str), slug))
 
     for taxid, slug in species_list:
-        logger.info(f"=== Processing Widescreen 10-Panel Diagnostic Suite for {slug} (TaxID: {taxid}) ===")
+        logger.info(f"=== Processing 10-Panel Diagnostic Suite for {slug} (TaxID: {taxid}) ===")
         data = compute_species_enhanced_data(taxid, slug, project_root, logger)
         val_dir: Path = data["val_dir"]
 
         if args.out_png and args.out_pdf and len(species_list) == 1:
             out_png = Path(args.out_png)
             out_pdf = Path(args.out_pdf)
-            render_widescreen_9panel_figure(
+            render_10panel_figure(
                 data, out_png, out_pdf,
                 target_r=args.target_r,
                 min_retained_cr_frac=args.min_retained_cr_frac,
             )
         else:
-            out_png_wide = val_dir / f"{taxid}.diagnostic_widescreen.png"
-            out_pdf_wide = val_dir / f"{taxid}.diagnostic_widescreen.pdf"
-            logger.info(f"[{taxid}] Rendering widescreen 10-panel figure ({out_png_wide.name}, {out_pdf_wide.name})...")
-            render_widescreen_9panel_figure(
-                data, out_png_wide, out_pdf_wide,
+            out_png_10panel = val_dir / f"{taxid}.diagnostic_10panel.png"
+            out_pdf_10panel = val_dir / f"{taxid}.diagnostic_10panel.pdf"
+            logger.info(f"[{taxid}] Rendering 10-panel figure ({out_png_10panel.name}, {out_pdf_10panel.name})...")
+            render_10panel_figure(
+                data, out_png_10panel, out_pdf_10panel,
                 target_r=args.target_r,
                 min_retained_cr_frac=args.min_retained_cr_frac,
             )

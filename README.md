@@ -92,17 +92,17 @@ Every target species is tracked from start to finish—failed or excluded specie
 
 | Path | Description |
 | :--- | :--- |
-| `results/05_reports/validation_report_widescreen.html` | **Widescreen Self-Contained HTML Dashboard** embedding the multi-panel widescreen diagnostic suite (`{t_id}.diagnostic_widescreen.png`) for every active species alongside executive KPIs, filterable ledger tables, and SLURM benchmarks. |
-| `results/05_reports/validation_report_2x2.html` | **Compact 2×2 Self-Contained HTML Dashboard** (also written to `validation_report.html`) embedding the classic 4-panel `2×2` diagnostic plots (`{t_id}.diagnostic_2x2.png`). |
+| `results/05_reports/validation_report_10panel.html` | **10-Panel Widescreen Self-Contained HTML Dashboard** embedding the 10-panel diagnostic suite (`{t_id}.diagnostic_10panel.png`) for every active species alongside executive KPIs, filterable ledger tables, and SLURM benchmarks. |
+| `results/05_reports/validation_report_4panel.html` | **4-Panel (2×2) Self-Contained HTML Dashboard** (also written to `validation_report.html`) embedding the classic 4-panel `2×2` diagnostic plots (`{t_id}.diagnostic_4panel.png`). |
 | `results/05_reports/validation_master_summary.tsv` | **Master Lifecycle Table** (also saved as `.parquet`) with all Stage 0–5 metrics and final `validation_status` for every target taxon. |
 | `results/05_reports/validated_timeseries_long.parquet` | **Unified 516-Week Time Series** (`raw_kraken_reads`, `all_cr_mapped_reads`, `validated_clean_bin_reads`) across all target taxa. |
-| `results/04_validation/{t_id}_{Species_name}/` | **Per-Species Results Folder** containing `{t_id}.diagnostic_widescreen.{png,pdf}`, `{t_id}.diagnostic_2x2.{png,pdf}`, `{t_id}.bin_regression_data.tsv`, `{t_id}.enhanced_bin_metrics.tsv`, `{t_id}.pruning_trajectory.tsv`, and `{t_id}.weekly_timeseries_516w.tsv`. |
+| `results/04_validation/{t_id}_{Species_name}/` | **Per-Species Results Folder** containing `{t_id}.diagnostic_10panel.{png,pdf}`, `{t_id}.diagnostic_4panel.{png,pdf}`, `{t_id}.bin_regression_data.tsv`, `{t_id}.enhanced_bin_metrics.tsv`, `{t_id}.pruning_trajectory.tsv`, and `{t_id}.weekly_timeseries_516w.tsv`. |
 | `results/03_mapping/{t_id}_{Species_name}/` | **Alignment Parquet & Identity Audit** containing `{t_id}.alignments.parquet`, `{t_id}.mapping_stats.tsv`, and `{t_id}.identity_histogram_lt99.tsv` (exact 516-week `<90%` and `90%–98%` 1%-bin read-pair counts). |
 | `results/00_ledger/assembly_filtering_summary.tsv` | **Stage 1 Contig Filtering Audit Table** recording raw vs. kept contigs and base pairs ($\ge 1,000\text{ bp}$). |
 
 ---
 
-## Widescreen Diagnostic Dashboard Guide (`{t_id}.diagnostic_widescreen.png`)
+## 10-Panel Diagnostic Dashboard Guide (`{t_id}.diagnostic_10panel.png`)
 
 > **Full Plain-English & Mathematical Guide**: See [**`DASHBOARD_README.md`**](DASHBOARD_README.md) for a complete panel-by-panel reference containing both a plain-English guide (for biologists and manuscript reviewers) and the full mathematical specification (formulas, normalizations, statistical cutoffs, and methodological rationale).
 

@@ -14,8 +14,8 @@ The pipeline produces two versions of the per-species figures and two versions o
 
 | Output Variant | Per-Species Figure Files (`results/04_validation/{t_id}_{Species}/`) | Merged Self-Contained HTML Report (`results/05_reports/`) | Purpose |
 | :--- | :--- | :--- | :--- |
-| **Widescreen 10-Panel Suite** | `{t_id}.diagnostic_widescreen.png`<br>`{t_id}.diagnostic_widescreen.pdf` | `validation_report_widescreen.html` | Full `32.0 × 18.2 in` (`300 DPI`) widescreen dashboard covering genomic uniformity, outlier classification, read & sequence attrition funnels, sequence identity spectrum, genome-wide Manhattan coverage, 10-year time series, seasonal phenology, bin sample occupancy, and a `100 bins × active weeks` hierarchical clustermap. |
-| **Compact 2×2 Suite** | `{t_id}.diagnostic_2x2.png`<br>`{t_id}.diagnostic_2x2.pdf`<br>*(also aliased as `.diagnostic_3panel.{png,pdf}`)* | `validation_report_2x2.html`<br>*(also aliased as `validation_report.html`)* | Classic `16.5 × 11.2 in` (`300 DPI`) 4-panel summary (`A.` Genomic Proportionality Regression, `B.` Outlier Pruning Trajectory, `C.` 10-Year Weekly Time Series, `D.` 1:1 Weekly Raw vs. Validated Scatter). |
+| **10-Panel Widescreen Suite** | `{t_id}.diagnostic_10panel.png`<br>`{t_id}.diagnostic_10panel.pdf` | `validation_report_10panel.html` | Full `32.0 × 18.2 in` (`300 DPI`) 10-panel widescreen dashboard (`Panels A–J`) covering genomic uniformity, outlier classification, read & sequence attrition funnels, sequence identity spectrum, genome-wide Manhattan coverage, 10-year time series, seasonal phenology, bin sample occupancy, and a `100 bins × active weeks` hierarchical clustermap. |
+| **4-Panel Compact (2×2) Suite** | `{t_id}.diagnostic_4panel.png`<br>`{t_id}.diagnostic_4panel.pdf` | `validation_report_4panel.html`<br>*(also aliased as `validation_report.html`)* | Classic `16.5 × 11.2 in` (`300 DPI`) 4-panel summary (`A.` Genomic Proportionality Regression, `B.` Outlier Pruning Trajectory, `C.` 10-Year Weekly Time Series, `D.` 1:1 Weekly Raw vs. Validated Scatter). |
 
 ---
 

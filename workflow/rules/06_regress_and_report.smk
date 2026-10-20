@@ -66,7 +66,7 @@ rule validate_and_regress_species:
 rule generate_species_diagnostic_figure:
     """
     WHY:
-    Produces the classic 2x2 4-panel diagnostic figure for each active species:
+    Produces the classic 2x2 4-panel diagnostic figure (`{t_id}.diagnostic_4panel.{png,pdf}`) for each active species:
       - Panel A: Regression Scatter Plot (Retained circles vs. Pruned triangles labeled by step,
                  Initial dashed regression line vs. Final solid line with 95% CI band).
       - Panel B: Dual-axis Pruning Trajectory Curve (Pearson R vs. % Retained CR Length).
@@ -79,18 +79,16 @@ rule generate_species_diagnostic_figure:
         weekly_tsv = "results/04_validation/{t_id}_{species_slug}/{t_id}.weekly_timeseries_516w.tsv",
         metrics_json = "results/04_validation/{t_id}_{species_slug}/{t_id}.validation_metrics.json"
     output:
-        png = "results/04_validation/{t_id}_{species_slug}/{t_id}.diagnostic_3panel.png",
-        pdf = "results/04_validation/{t_id}_{species_slug}/{t_id}.diagnostic_3panel.pdf",
-        png_2x2 = "results/04_validation/{t_id}_{species_slug}/{t_id}.diagnostic_2x2.png",
-        pdf_2x2 = "results/04_validation/{t_id}_{species_slug}/{t_id}.diagnostic_2x2.pdf"
+        png_4panel = "results/04_validation/{t_id}_{species_slug}/{t_id}.diagnostic_4panel.png",
+        pdf_4panel = "results/04_validation/{t_id}_{species_slug}/{t_id}.diagnostic_4panel.pdf"
     params:
         script = str(SCRIPTS_DIR / "generate_species_plots.py"),
         target_r = config.get("target_r", 0.90),
         min_ret_cr_frac = config.get("min_retained_cr_frac", 0.50)
     log:
-        "logs/06_regress_and_report/plot_species_2x2_{t_id}_{species_slug}.log"
+        "logs/06_regress_and_report/plot_species_4panel_{t_id}_{species_slug}.log"
     benchmark:
-        "benchmarks/06_regress_and_report/plot_species_2x2_{t_id}_{species_slug}.tsv"
+        "benchmarks/06_regress_and_report/plot_species_4panel_{t_id}_{species_slug}.tsv"
     conda:
         str(ENVS_DIR / "core_polars_joltax.yaml")
     threads: get_threads("plot_species", 1)
@@ -109,18 +107,16 @@ rule generate_species_diagnostic_figure:
             --metrics-json {input.metrics_json} \
             --target-r {params.target_r} \
             --min-retained-cr-frac {params.min_ret_cr_frac} \
-            --out-png {output.png} \
-            --out-pdf {output.pdf} \
+            --out-png {output.png_4panel} \
+            --out-pdf {output.pdf_4panel} \
             --log {log}
-        cp {output.png} {output.png_2x2}
-        cp {output.pdf} {output.pdf_2x2}
         """
 
 
-rule generate_species_widescreen_figure:
+rule generate_species_10panel_figure:
     """
     WHY:
-    Produces the extended Widescreen Diagnostic Suite (`32.0 x 18.2 in`, 300 DPI PNG + PDF)
+    Produces the extended 10-Panel Diagnostic Suite (`{t_id}.diagnostic_10panel.{png,pdf}`, `32.0 x 18.2 in`, 300 DPI)
     for each active species on a unified 3x4 column-aligned grid:
       - Panel A: Genomic Proportionality Regression (+ top structural strip & horizontal Cosine colorbar)
       - Panel B: Outlier Pruning Trajectory (Pearson R vs. Retained CR %)
@@ -142,25 +138,25 @@ rule generate_species_widescreen_figure:
         weekly_tsv = "results/04_validation/{t_id}_{species_slug}/{t_id}.weekly_timeseries_516w.tsv",
         metrics_json = "results/04_validation/{t_id}_{species_slug}/{t_id}.validation_metrics.json"
     output:
-        png_wide = "results/04_validation/{t_id}_{species_slug}/{t_id}.diagnostic_widescreen.png",
-        pdf_wide = "results/04_validation/{t_id}_{species_slug}/{t_id}.diagnostic_widescreen.pdf",
+        png_10panel = "results/04_validation/{t_id}_{species_slug}/{t_id}.diagnostic_10panel.png",
+        pdf_10panel = "results/04_validation/{t_id}_{species_slug}/{t_id}.diagnostic_10panel.pdf",
         enhanced_tsv = "results/04_validation/{t_id}_{species_slug}/{t_id}.enhanced_bin_metrics.tsv"
     params:
         script = str(SCRIPTS_DIR / "generate_enhanced_species_dashboard.py"),
         target_r = config.get("target_r", 0.90),
         min_ret_cr_frac = config.get("min_retained_cr_frac", 0.50)
     log:
-        "logs/06_regress_and_report/plot_species_widescreen_{t_id}_{species_slug}.log"
+        "logs/06_regress_and_report/plot_species_10panel_{t_id}_{species_slug}.log"
     benchmark:
-        "benchmarks/06_regress_and_report/plot_species_widescreen_{t_id}_{species_slug}.tsv"
+        "benchmarks/06_regress_and_report/plot_species_10panel_{t_id}_{species_slug}.tsv"
     conda:
         str(ENVS_DIR / "core_polars_joltax.yaml")
-    threads: get_threads("plot_species_widescreen", 2)
+    threads: get_threads("plot_species_10panel", 2)
     retries: DEFAULT_RETRIES
     resources:
-        mem_mb = scale_mem_mb("plot_species_widescreen", 6000, input_mb_mult=15.0),
-        runtime = scale_runtime("plot_species_widescreen", 20),
-        cpus_per_task = get_threads("plot_species_widescreen", 2)
+        mem_mb = scale_mem_mb("plot_species_10panel", 6000, input_mb_mult=15.0),
+        runtime = scale_runtime("plot_species_10panel", 20),
+        cpus_per_task = get_threads("plot_species_10panel", 2)
     shell:
         r"""
         python {params.script} \
@@ -168,8 +164,8 @@ rule generate_species_widescreen_figure:
             --species-slug "{wildcards.species_slug}" \
             --target-r {params.target_r} \
             --min-retained-cr-frac {params.min_ret_cr_frac} \
-            --out-png {output.png_wide} \
-            --out-pdf {output.pdf_wide} \
+            --out-png {output.png_10panel} \
+            --out-pdf {output.pdf_10panel} \
             --log {log}
         """
 
@@ -182,34 +178,34 @@ def get_all_active_metrics_jsons(wildcards):
     ]
 
 
-def get_all_active_diagnostic_pngs(wildcards):
+def get_all_active_4panel_pngs(wildcards):
     records = get_active_species_records(wildcards)
     return [
-        f"results/04_validation/{r['t_id']}_{r['species_slug']}/{r['t_id']}.diagnostic_2x2.png"
+        f"results/04_validation/{r['t_id']}_{r['species_slug']}/{r['t_id']}.diagnostic_4panel.png"
         for r in records
     ]
 
 
-def get_all_active_diagnostic_pdfs(wildcards):
+def get_all_active_4panel_pdfs(wildcards):
     records = get_active_species_records(wildcards)
     return [
-        f"results/04_validation/{r['t_id']}_{r['species_slug']}/{r['t_id']}.diagnostic_2x2.pdf"
+        f"results/04_validation/{r['t_id']}_{r['species_slug']}/{r['t_id']}.diagnostic_4panel.pdf"
         for r in records
     ]
 
 
-def get_all_active_widescreen_pngs(wildcards):
+def get_all_active_10panel_pngs(wildcards):
     records = get_active_species_records(wildcards)
     return [
-        f"results/04_validation/{r['t_id']}_{r['species_slug']}/{r['t_id']}.diagnostic_widescreen.png"
+        f"results/04_validation/{r['t_id']}_{r['species_slug']}/{r['t_id']}.diagnostic_10panel.png"
         for r in records
     ]
 
 
-def get_all_active_widescreen_pdfs(wildcards):
+def get_all_active_10panel_pdfs(wildcards):
     records = get_active_species_records(wildcards)
     return [
-        f"results/04_validation/{r['t_id']}_{r['species_slug']}/{r['t_id']}.diagnostic_widescreen.pdf"
+        f"results/04_validation/{r['t_id']}_{r['species_slug']}/{r['t_id']}.diagnostic_10panel.pdf"
         for r in records
     ]
 
@@ -219,8 +215,8 @@ rule generate_master_validation_report:
     WHY:
     Aggregates lifecycle metrics across EVERY target species in `config/targets.tsv` into
     machine-readable Polars TSV/Parquet tables and BOTH self-contained interactive HTML dashboards:
-      1. `validation_report_2x2.html` (and `validation_report.html`): embeds the compact 2x2 figures.
-      2. `validation_report_widescreen.html`: embeds the widescreen 10-panel diagnostic figures.
+      1. `validation_report_4panel.html` (and `validation_report.html`): embeds the 4-panel figures.
+      2. `validation_report_10panel.html`: embeds the 10-panel diagnostic figures.
     """
     input:
         wf_info = "results/00_ledger/workflow_run_info.json",
@@ -230,17 +226,17 @@ rule generate_master_validation_report:
         cr_summary = "results/02_classifiable_regions/cr_streaming_summary.tsv",
         raw_weekly_long = "results/01_inputs/raw_weekly_counts/raw_weekly_counts_long.tsv",
         metrics_jsons = get_all_active_metrics_jsons,
-        diagnostic_pngs = get_all_active_diagnostic_pngs,
-        diagnostic_pdfs = get_all_active_diagnostic_pdfs,
-        widescreen_pngs = get_all_active_widescreen_pngs,
-        widescreen_pdfs = get_all_active_widescreen_pdfs
+        diagnostic_4panel_pngs = get_all_active_4panel_pngs,
+        diagnostic_4panel_pdfs = get_all_active_4panel_pdfs,
+        diagnostic_10panel_pngs = get_all_active_10panel_pngs,
+        diagnostic_10panel_pdfs = get_all_active_10panel_pdfs
     output:
         master_tsv = "results/05_reports/validation_master_summary.tsv",
         master_parquet = "results/05_reports/validation_master_summary.parquet",
         timeseries_parquet = "results/05_reports/validated_timeseries_long.parquet",
         html_report = "results/05_reports/validation_report.html",
-        html_report_2x2 = "results/05_reports/validation_report_2x2.html",
-        html_report_wide = "results/05_reports/validation_report_widescreen.html"
+        html_report_4panel = "results/05_reports/validation_report_4panel.html",
+        html_report_10panel = "results/05_reports/validation_report_10panel.html"
     params:
         script = str(SCRIPTS_DIR / "generate_master_report.py"),
         template = str(SCRIPTS_DIR / "templates" / "validation_report.html.j2"),
@@ -275,7 +271,7 @@ rule generate_master_validation_report:
             --out-master-parquet {output.master_parquet} \
             --out-timeseries-parquet {output.timeseries_parquet} \
             --out-html {output.html_report} \
-            --out-html-2x2 {output.html_report_2x2} \
-            --out-html-widescreen {output.html_report_wide} \
+            --out-html-4panel {output.html_report_4panel} \
+            --out-html-10panel {output.html_report_10panel} \
             --log {log}
         """
