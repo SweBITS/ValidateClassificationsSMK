@@ -133,6 +133,7 @@ rule generate_species_10panel_figure:
         cr_fasta = "results/02_classifiable_regions/{t_id}/{t_id}.cr_contigs.fa",
         parquet = "results/03_mapping/{t_id}/{t_id}.passing_alignments.parquet",
         map_stats = "results/03_mapping/{t_id}/{t_id}.mapping_stats.tsv",
+        id_hist_tsv = "results/03_mapping/{t_id}/{t_id}.identity_histogram_lt99.tsv",
         bin_reg_tsv = "results/04_validation/{t_id}_{species_slug}/{t_id}.bin_regression_data.tsv",
         traj_tsv = "results/04_validation/{t_id}_{species_slug}/{t_id}.pruning_trajectory.tsv",
         weekly_tsv = "results/04_validation/{t_id}_{species_slug}/{t_id}.weekly_timeseries_516w.tsv",

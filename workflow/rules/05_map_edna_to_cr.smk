@@ -21,7 +21,8 @@ rule map_edna_to_cr:
         r2 = "results/01_inputs/fastq/taxID-{t_id}_R2.fq.gz"
     output:
         parquet = "results/03_mapping/{t_id}/{t_id}.passing_alignments.parquet",
-        stats_tsv = "results/03_mapping/{t_id}/{t_id}.mapping_stats.tsv"
+        stats_tsv = "results/03_mapping/{t_id}/{t_id}.mapping_stats.tsv",
+        id_hist_tsv = "results/03_mapping/{t_id}/{t_id}.identity_histogram_lt99.tsv"
     params:
         script = str(SCRIPTS_DIR / "filter_sam_to_parquet.py"),
         min_mapq = config.get("min_mapq", 30),
