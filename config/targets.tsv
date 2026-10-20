@@ -1,6 +1,7 @@
 # Optional 3rd column `override_accession`: specify an NCBI assembly accession (e.g. GCA_... or GCF_...)
-# OR a local genome FASTA filename/path (e.g. GCA_965250375.1_bColPal1.1_genomic.fna) located in input/local_assemblies/.
-# Leave empty for automatic database_manifest.tsv selection.
+# OR a local genome FASTA filename/path (e.g. GCA_965250375.1_bColPal1.1_genomic.fna.gz) located in input/local_assemblies/.
+# Leave empty for automatic database_manifest selection.
+# Note: Duplicate `t_id` rows are automatically skipped with a warning (only the first occurrence is kept).
 t_id	t_species	override_accession
 325452	Phytophthora kernoviae	
 40932	Rhopalosiphum padi	

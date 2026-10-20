@@ -63,14 +63,16 @@ ValidateClassificationsSMK/
 ## Quickstart
 
 ### 1. Define Target Species (`config/targets.tsv`)
-Add the NCBI TaxID (`t_id`) and species name (`t_species`) for each taxon you want to validate:
+Add the NCBI TaxID (`t_id`), species name (`t_species`), and optional `override_accession` for each taxon you want to validate:
 ```tsv
-t_id	t_species
-30423	Coloeus monedula
-8934	Columba palumbus
-36056	Boletus edulis
+t_id	t_species	override_accession
+30423	Coloeus monedula	
+8934	Columba palumbus	GCA_965250375.1_bColPal1.1_genomic.fna.gz
+36056	Boletus edulis	
 ```
-You do **not** need to look up assembly accessions or download FASTA files manually.
+- **Automatic Assembly Selection (default)**: Leave `override_accession` empty and the pipeline will automatically select and download the highest-ranked nuclear assembly for that clade from `database_manifest`.
+- **Manual Accession or Local FASTA Override (`override_accession`)**: Optionally specify either an NCBI assembly accession (`GCA_...` / `GCF_...`) or a local genome FASTA filename/path (`*.fa`, `*.fna`, `*.fa.gz`, `*.fna.gz`) placed in `input/local_assemblies/`.
+- **Duplicate `t_id` Handling**: If the same `t_id` is listed more than once in `config/targets.tsv`, Stage 0 keeps the first occurrence and automatically skips subsequent duplicates with a `WARNING` in the log so downstream Snakemake wildcards never collide.
 
 ### 2. Review Parameters (`config/config.yaml`)
 All thresholds (`min_total_reads: 1000`, `coverage_tier: "2x"`, `n_bins: 100`, `target_r: 0.90`, `min_retained_cr_frac: 0.50`) and cluster paths (`config/manifests/master_db_2025_manifest.tsv.gz`, `joltax_cache_dir`, `kraken2_db_path`) are pre-configured in [`config/config.yaml`](config/config.yaml).
