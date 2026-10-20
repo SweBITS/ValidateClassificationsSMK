@@ -1,4 +1,7 @@
-# -- Cluster submission settings --
+# -- Snakemake 9+ SLURM Executor --
+executor: slurm
+
+# -- Legacy Snakemake 7 cluster settings (kept for backwards compatibility) --
 cluster:
     jobscript: "../slurm-jobscript.sh"
     submitcmd: "sbatch {dependencies}"
