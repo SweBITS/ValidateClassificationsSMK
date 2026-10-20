@@ -88,15 +88,51 @@ snakemake --profile slurm/hpc2n --use-conda
 
 ## Output Directory Guide
 
-Every target species is tracked from start to finish—failed or excluded species **never crash the pipeline** and always appear in the final summary tables and HTML dashboard:
+Every target species is tracked from start to finish—failed or excluded species **never crash the pipeline** and always appear in the final summary tables and both HTML dashboards:
 
 | Path | Description |
 | :--- | :--- |
-| `results/05_reports/validation_report.html` | **Interactive Self-Contained HTML Dashboard** (executive summary, filterable status table, embedded 3-panel diagnostic plots, and SLURM benchmarks). |
+| `results/05_reports/validation_report_widescreen.html` | **Widescreen Self-Contained HTML Dashboard** embedding the multi-panel widescreen diagnostic suite (`{t_id}.diagnostic_widescreen.png`) for every active species alongside executive KPIs, filterable ledger tables, and SLURM benchmarks. |
+| `results/05_reports/validation_report_2x2.html` | **Compact 2×2 Self-Contained HTML Dashboard** (also written to `validation_report.html`) embedding the classic 4-panel `2×2` diagnostic plots (`{t_id}.diagnostic_2x2.png`). |
 | `results/05_reports/validation_master_summary.tsv` | **Master Lifecycle Table** (also saved as `.parquet`) with all Stage 0–5 metrics and final `validation_status` for every target taxon. |
 | `results/05_reports/validated_timeseries_long.parquet` | **Unified 516-Week Time Series** (`raw_kraken_reads`, `all_cr_mapped_reads`, `validated_clean_bin_reads`) across all target taxa. |
-| `results/04_validation/{t_id}_{Species_name}/` | **Per-Species Results Folder** containing `{t_id}.diagnostic_3panel.png` (and `.pdf`), `{t_id}.bin_regression_data.tsv`, `{t_id}.pruning_trajectory.tsv`, and `{t_id}.weekly_timeseries_516w.tsv`. |
+| `results/04_validation/{t_id}_{Species_name}/` | **Per-Species Results Folder** containing `{t_id}.diagnostic_widescreen.{png,pdf}`, `{t_id}.diagnostic_2x2.{png,pdf}`, `{t_id}.bin_regression_data.tsv`, `{t_id}.enhanced_bin_metrics.tsv`, `{t_id}.pruning_trajectory.tsv`, and `{t_id}.weekly_timeseries_516w.tsv`. |
+| `results/03_mapping/{t_id}_{Species_name}/` | **Alignment Parquet & Identity Audit** containing `{t_id}.alignments.parquet`, `{t_id}.mapping_stats.tsv`, and `{t_id}.identity_histogram_lt99.tsv` (exact 516-week `<90%` and `90%–98%` 1%-bin read-pair counts). |
 | `results/00_ledger/assembly_filtering_summary.tsv` | **Stage 1 Contig Filtering Audit Table** recording raw vs. kept contigs and base pairs ($\ge 1,000\text{ bp}$). |
+
+---
+
+## Widescreen Diagnostic Dashboard Guide (`{t_id}.diagnostic_widescreen.png`)
+
+> **Full Plain-English & Mathematical Guide**: See [**`DASHBOARD_README.md`**](DASHBOARD_README.md) for a complete panel-by-panel reference containing both a plain-English guide (for biologists and manuscript reviewers) and the full mathematical specification (formulas, normalizations, statistical cutoffs, and methodological rationale).
+
+The widescreen figure (`32.0 × 18.2 in`, 300 DPI) uses a unified `3 × 4` column-aligned grid (`A/C/G` in Col 0, `B/F` in Col 1, `D/I` in Col 2, `H` spanning Cols 1–2, and `E/J` in Col 3) with italic species titles and report-matched colored status badges:
+
+- **Panel A — Genomic Proportionality Regression (+ Top Structural Strip & Horizontal Cosine Colorbar)**:
+  - Regresses mapped eDNA read pairs ($Y$) against Classifiable Region length ($X$, sorted shortest $\rightarrow$ longest contig across 100 bins), with vertical whiskers showing the intra-bin length-weighted coverage interquartile range (`p25–p75`).
+  - A slim top marginal strip (`14.5%` height, locked to the exact same X-axis limits) displays the number of distinct contigs per bin (gray bars) and median CR segment length in kb (blue line).
+  - Points are colored by their **516-week Temporal Cosine Similarity** (`Viridis`, `0.0–1.0`), with a shared **horizontal colorbar placed directly between Panel A and Panel C**.
+- **Panel B — Outlier Pruning Trajectory**:
+  - Tracks linear correlation (Pearson $R$, blue) and Retained CR sequence % (orange, capped at `100%`) across iterative outlier bin removal steps against the validation thresholds ($R \ge 0.90$, Retained CR $\ge 50\%$).
+- **Panel C — Genome-Wide CR Coverage Map (Manhattan Plot)**:
+  - Plots read density (`Reads / kb`) for every individual CR segment across cumulative CR coordinates (`bin_001` $\rightarrow$ `bin_100`) on a `symlog(linthresh=1.0)` y-axis (shaded slate band for the linear `0 ≤ y ≤ 1` regime; $\log_{10}$ above `y = 1`), with rose vertical bands highlighting pruned bins.
+- **Panel D — Outlier Classification Quadrant (`Dot Size = Gini Inequality`)**:
+  - Plots **Excess Read Depth** ($\log_2[\text{Observed} / \text{Expected}]$) on X against **Temporal Concordance (Cosine Sim)** on Y to separate **Endogenous Multi-Copy Repeats** (high depth, concordant phenology) from **Foreign Cross-Mapping Artifacts** (high depth, discordant time series).
+  - Marker size encodes the **Intra-Bin Length-Weighted Gini Coefficient ($G_b \in [0, 1]$)**, measuring how unevenly reads are concentrated across CRs within each bin (`0.20 = Uniform CRs`, `0.55 = Moderate`, `≥0.85 = CR Hotspot`).
+- **Panel E1, E2 & E3 — eDNA Read Attrition, Alignment Identity Spectrum & Reference Sequence Funnel**:
+  - **E1 (`eDNA Read Attrition`)**: Centered symmetrical trapezoidal funnel tracking read pairs across 5 filter stages (`1. Raw Kraken Clade Pairs` $\rightarrow$ `2. CR Mapped MAPQ ≥ 30` $\rightarrow$ `3. Passed ≥ 80% Aligned` $\rightarrow$ `4. Passed ≥ 99% Identity` $\rightarrow$ `5. Clean Validated Bins`).
+  - **E2 (`Alignment Identity Spectrum`)**: 1%-bin sequence identity distribution (`<90%` through `100%`) for CR-aligned read pairs passing $\ge 80\%$ read length aligned (`<99%` rejected in crimson vs. `99%` and `100%` passing in emerald/amber).
+  - **E3 (`Reference Sequence Funnel`, stacked under E2)**: Centered symmetrical trapezoidal funnel tracking reference sequence retention (`1. Total Genome Assembly` $\rightarrow$ `2. Classifiable Regions (CR)` $\rightarrow$ `3. Clean CRs (Post-Pruning)`).
+- **Panel F — Weekly Signal Retention ($\log_{10}(\text{Reads}+1)$)**:
+  - Compares weekly raw Kraken 2 clade read pairs against post-validation clean-bin read pairs across all 516 weeks, reporting linear Pearson $R$, log-space $R_{\log}$, and Spearman $\rho$.
+- **Panel G — 10-Year Longitudinal eDNA Time Series (2013–2022, 516 Weeks)**:
+  - Stacked directly below the Manhattan plot (`Panel C`) at identical column width, comparing weekly `Raw Kraken Clade Pairs` (gray), `All-CR Mapped Pairs` (blue), and `Validated Clean-Bin Pairs` (status color).
+- **Panel H — 10-Year Seasonal Phenology Profile (Weeks 1–52, 3w Circular Smooth)**:
+  - Spans the combined width of `Panels B + D` (`F + I`), comparing the 10-year pre-validation vs. post-validation seasonal cycle smoothed with a `[0.25, 0.50, 0.25]` circular moving average across the Dec–Jan boundary, with dual Y-axes (`Share of Annual Signal %/week` on left; `Mean Clean Pairs / Week` on right).
+- **Panel I — Bin Temporal Occupancy (`%` of 516 Weeks Occupied)**:
+  - Plots each bin's **Weekly Sample Occupancy (% of 516 weeks with $\ge 1$ read pair)** against its **Temporal Concordance (Cosine Sim)**, paired with a top marginal occupancy histogram, Clean Median Occupancy (`%` and `weeks`), and Effective Active Weeks ($N_{\text{eff}} = 1/\sum p_t^2$).
+- **Panel J — Bin × Week Hierarchical Clustermap**:
+  - Clusters all 100 bins by their $\log_{10}(\text{Reads/kb} + 1)$ temporal profiles across active weeks using Ward's minimum-variance linkage (`method="ward"`, `metric="euclidean"`, `optimal_ordering=True`), with bottom-labeled vertical strips (`CosSim`, `Occ%`, `Status`), a left-aligned panel title matching all other panels, and 2 slim horizontal colorbars (`Occupancy % of 516 Wks` and `Read Density`).
 
 ### Validation Status Codes
 - `VALIDATED_CLEAN`: Passed occupancy gate ($\ge 50\%$ bins) and achieved Pearson $R \ge 0.90$ ($\beta_1 > 0$) across all 100 bins with **0 bins pruned**.
@@ -112,6 +148,8 @@ Every target species is tracked from start to finish—failed or excluded specie
 
 ## Technical Documentation & In-Depth Analyses
 
+- [`DASHBOARD_README.md`](DASHBOARD_README.md): **Diagnostic Dashboard Guide (Plain-English & Technical/Mathematical Reference)**.
+  Comprehensive guide to every panel (`A` through `J`) and validation status code, with both non-specialist plain-English explanations and full mathematical definitions, cutoffs, and rationale.
 - [`docs/NCBI_ASSEMBLY_SUPPRESSION_ANALYSIS.md`](docs/NCBI_ASSEMBLY_SUPPRESSION_ANALYSIS.md): **Empirical Analysis of NCBI Assembly Suppressions & Grand-Scale Workarounds**.
   An empirical audit of all 107,575 GenBank and RefSeq assemblies in `input/database_manifest.tsv`, explaining why re-annotation and submitter requests cause suppressions, evaluating underlying GenBank availability, and outlining automated workarounds (such as `GCF_` $\rightarrow$ `GCA_` fallback and handling DToL v2 chromosome updates) for future grand-scale executions.
 

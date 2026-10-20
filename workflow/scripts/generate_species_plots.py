@@ -51,28 +51,32 @@ from common_ledger import ValidationStatus, setup_logger
 
 STATUS_PALETTE: Dict[str, Dict[str, str]] = {
     ValidationStatus.VALIDATED_CLEAN: {
-        "primary": "#047857",   # Deeper forest green
+        "primary": "#047857",      # Deeper forest green
         "fill": "#a7f3d0",
-        "badge_bg": "#d1fae5",
+        "badge_bg": "#d1fae5",     # Exact match to HTML report .status-VALIDATED_CLEAN
         "badge_fg": "#064e3b",
+        "badge_border": "#047857",
     },
     ValidationStatus.VALIDATED_PRUNED: {
-        "primary": "#10b981",   # Lighter emerald green
+        "primary": "#10b981",      # Lighter emerald green
         "fill": "#d1fae5",
-        "badge_bg": "#ecfdf5",
+        "badge_bg": "#ecfdf5",     # Exact match to HTML report .status-VALIDATED_PRUNED
         "badge_fg": "#047857",
+        "badge_border": "#10b981",
     },
     ValidationStatus.FAILED_LOW_CORRELATION: {
-        "primary": "#dc2626",   # Same red colour
+        "primary": "#dc2626",      # Crimson red
         "fill": "#fecaca",
-        "badge_bg": "#fee2e2",
+        "badge_bg": "#fee2e2",     # Exact match to HTML report .status-FAILED_*
         "badge_fg": "#991b1b",
+        "badge_border": "#dc2626",
     },
     ValidationStatus.FAILED_LOW_OCCUPANCY: {
-        "primary": "#dc2626",   # Same red colour
+        "primary": "#dc2626",      # Crimson red
         "fill": "#fecaca",
-        "badge_bg": "#fee2e2",
+        "badge_bg": "#fee2e2",     # Exact match to HTML report .status-FAILED_*
         "badge_fg": "#991b1b",
+        "badge_border": "#dc2626",
     },
 }
 
@@ -146,7 +150,13 @@ def main() -> None:
     status = metrics.get("validation_status", ValidationStatus.FAILED_LOW_CORRELATION)
     palette = STATUS_PALETTE.get(
         status,
-        {"primary": "#475569", "fill": "#cbd5e1", "badge_bg": "#f1f5f9", "badge_fg": "#334155"},
+        {
+            "primary": "#475569",
+            "fill": "#cbd5e1",
+            "badge_bg": "#f1f5f9",
+            "badge_fg": "#475569",
+            "badge_border": "#cbd5e1",
+        },
     )
 
     # Set clean publication rcParams
@@ -160,17 +170,17 @@ def main() -> None:
         "grid.linewidth": 0.6,
     })
 
-    fig = plt.figure(figsize=(16.5, 11), dpi=300, facecolor="white")
+    fig = plt.figure(figsize=(16.5, 11.2), dpi=300, facecolor="white")
     gs = gridspec.GridSpec(
         2, 2,
         figure=fig,
         height_ratios=[1.0, 1.0],
         width_ratios=[1.60, 1.0],
-        hspace=0.36,
+        hspace=0.38,
         wspace=0.17,
         left=0.06,
         right=0.94,
-        top=0.85,
+        top=0.84,
         bottom=0.07,
     )
 
@@ -179,22 +189,46 @@ def main() -> None:
     ax_ts = fig.add_subplot(gs[1, 0])
     ax_scatter_1to1 = fig.add_subplot(gs[1, 1])
 
-    # --- Header Banner --- #
+    # --- Header Banner (Italic Species Name + TaxID + Report-Matched Colored Status Pill) --- #
     sci_name = metrics.get("species_name", f"TaxID {args.taxid}")
-    fig.suptitle(
-        f"{sci_name} (TaxID: {args.taxid})  —  [{status}]",
-        fontsize=15,
-        fontweight="bold",
-        color="#0f172a",
-        y=0.965,
+    y_hdr = 0.958
+    t_sp = fig.text(
+        0.5, y_hdr, sci_name,
+        fontsize=16.0, fontstyle="italic", fontweight="bold", color="#0f172a", va="center", ha="left"
     )
+    t_tid = fig.text(
+        0.5, y_hdr, f"  (TaxID: {args.taxid})   —   ",
+        fontsize=14.5, fontweight="bold", color="#334155", va="center", ha="left"
+    )
+    t_badge = fig.text(
+        0.5, y_hdr, f" {status} ",
+        fontsize=12.0, fontweight="bold", color=palette["badge_fg"], va="center", ha="left",
+        bbox=dict(
+            boxstyle="round,pad=0.26,rounding_size=0.38",
+            facecolor=palette["badge_bg"],
+            edgecolor=palette["badge_border"],
+            linewidth=1.4,
+        ),
+    )
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    inv_fig = fig.transFigure.inverted()
+    w_sp = inv_fig.transform_bbox(t_sp.get_window_extent(renderer=renderer)).width
+    w_tid = inv_fig.transform_bbox(t_tid.get_window_extent(renderer=renderer)).width
+    w_badge = inv_fig.transform_bbox(t_badge.get_window_extent(renderer=renderer)).width
+    tot_hdr_w = w_sp + w_tid + w_badge
+    x_start_hdr = 0.50 - tot_hdr_w / 2.0
+    t_sp.set_position((x_start_hdr, y_hdr))
+    t_tid.set_position((x_start_hdr + w_sp, y_hdr))
+    t_badge.set_position((x_start_hdr + w_sp + w_tid, y_hdr))
+
     subtitle_str = (
         f"Total CR: {metrics.get('total_cr_bp', 0):,} bp ({metrics.get('retained_cr_pct', 0):.1f}% retained)   |   "
         f"Mapped Pairs: {metrics.get('total_mapped_read_pairs', 0):,} ({metrics.get('retained_mapped_reads_pct', 0):.1f}% in clean bins)   |   "
         f"Initial R = {metrics.get('initial_pearson_r', 0):.3f}  →  Final R = {metrics.get('final_pearson_r', 0):.3f} "
         f"(ρ = {metrics.get('final_spearman_rho', 0):.3f}, {metrics.get('bins_pruned_count', 0)} bins pruned)"
     )
-    fig.text(0.5, 0.925, subtitle_str, ha="center", va="center", fontsize=10, color="#334155")
+    fig.text(0.5, 0.912, subtitle_str, ha="center", va="center", fontsize=10.2, color="#334155")
 
     # ======================================================================== #
     # PANEL A: Regression Scatter Plot (Retained vs. Pruned Bins + 95% CI)

@@ -118,6 +118,8 @@ rule all:
         master_parquet = "results/05_reports/validation_master_summary.parquet",
         timeseries_parquet = "results/05_reports/validated_timeseries_long.parquet",
         html_report = "results/05_reports/validation_report.html",
+        html_report_2x2 = "results/05_reports/validation_report_2x2.html",
+        html_report_wide = "results/05_reports/validation_report_widescreen.html",
         wf_info = "results/00_ledger/workflow_run_info.json"
 
 # --- Include Modular Stage Rules --- #

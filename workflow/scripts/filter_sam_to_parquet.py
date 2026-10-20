@@ -37,6 +37,7 @@ homologous alignments from partial/clipped cross-mappings to conserved motifs:
 
 import argparse
 import csv
+import math
 import re
 import sys
 from pathlib import Path
@@ -282,6 +283,11 @@ def main() -> None:
 
     # Buffer for the first passing mate of a read pair
     pending_mate: Optional[Tuple[str, str, str, int, str, str, str, int, int, int, float, int, float]] = None
+    # Buffer for any mate passing MAPQ + align_frac so we can compute exact pair-minimum identity
+    # histogram across <90%, 90%, 91%, ..., 98% for pairs rejected at the <99% identity gate
+    pending_align_mate: Optional[Tuple[str, str, int, float, bool]] = None
+    lt99_pair_hist: Dict[int, int] = {b: 0 for b in range(89, 99)}
+    lt99_mate_hist: Dict[int, int] = {b: 0 for b in range(89, 99)}
 
     for line in sys.stdin:
         if not line or line.startswith("@"):
@@ -328,15 +334,44 @@ def main() -> None:
             continue
 
         mismatch_frac = nm / float(aligned_bp)
-        if mismatch_frac - 1e-9 > max_mismatch_frac:
-            failed_mismatch_frac += 1
-            continue
+        id_pct = 100.0 * (1.0 - mismatch_frac)
+        mate_passed_id = (mismatch_frac - 1e-9 <= max_mismatch_frac)
 
-        # Individual mate passed all filters; pair with its mate on the same CR
         qname = fields[0]
         read_id, sample_id, year_week = parse_qname_sample(qname)
         cr_id, bin_id, source_contig = parse_rname_metadata(rname)
         mate = 1 if (flag & 0x40) else (2 if (flag & 0x80) else 0)
+
+        if not mate_passed_id:
+            mate_bin = 89 if int(math.floor(id_pct + 1e-9)) < 90 else min(98, int(math.floor(id_pct + 1e-9)))
+            lt99_mate_hist[mate_bin] += 1
+
+        # Pair-level <99% identity histogram tracking for mates that both passed MAPQ + >=80% aligned length
+        if pending_align_mate is None:
+            pending_align_mate = (read_id, cr_id, mate, id_pct, mate_passed_id)
+        elif (
+            pending_align_mate[0] == read_id
+            and pending_align_mate[1] == cr_id
+            and pending_align_mate[2] != mate
+            and pending_align_mate[2] in (1, 2)
+            and mate in (1, 2)
+        ):
+            if not (pending_align_mate[4] and mate_passed_id):
+                pair_min_id = min(pending_align_mate[3], id_pct)
+                pair_bin = 89 if int(math.floor(pair_min_id + 1e-9)) < 90 else min(98, int(math.floor(pair_min_id + 1e-9)))
+                lt99_pair_hist[pair_bin] += 1
+            pending_align_mate = None
+        else:
+            if not pending_align_mate[4]:
+                p_bin = 89 if int(math.floor(pending_align_mate[3] + 1e-9)) < 90 else min(98, int(math.floor(pending_align_mate[3] + 1e-9)))
+                lt99_pair_hist[p_bin] += 1
+            pending_align_mate = (read_id, cr_id, mate, id_pct, mate_passed_id)
+
+        if not mate_passed_id:
+            failed_mismatch_frac += 1
+            continue
+
+        # Individual mate passed all filters; pair with its mate on the same CR
         curr_rec = (
             read_id,
             sample_id,
@@ -375,6 +410,11 @@ def main() -> None:
             failed_mate_pair += 1
             pending_mate = curr_rec
 
+    if pending_align_mate is not None and not pending_align_mate[4]:
+        p_bin = 89 if int(math.floor(pending_align_mate[3] + 1e-9)) < 90 else min(98, int(math.floor(pending_align_mate[3] + 1e-9)))
+        lt99_pair_hist[p_bin] += 1
+        pending_align_mate = None
+
     if pending_mate is not None:
         failed_mate_pair += 1
         pending_mate = None
@@ -390,6 +430,22 @@ def main() -> None:
 
     out_stats = Path(args.out_stats_tsv)
     out_stats.parent.mkdir(parents=True, exist_ok=True)
+    hist_fieldnames = ["id_lt90_pairs"] + [f"id_{b}_pairs" for b in range(90, 99)]
+    row_dict = {
+        "t_id": args.taxid,
+        "total_sam_records": total_sam_records,
+        "unmapped_or_nonprimary": unmapped_or_nonprimary,
+        "primary_mapped_records": primary_mapped_records,
+        "failed_mapq": failed_mapq,
+        "failed_align_frac": failed_align_frac,
+        "failed_mismatch_frac": failed_mismatch_frac + failed_mate_pair,
+        "passing_mate_alignments": passing_records,
+        "unique_passing_read_pairs": unique_read_pairs,
+        "id_lt90_pairs": lt99_pair_hist[89],
+    }
+    for b in range(90, 99):
+        row_dict[f"id_{b}_pairs"] = lt99_pair_hist[b]
+
     with open(out_stats, "w", encoding="utf-8", newline="") as sfh:
         stats_writer = csv.DictWriter(
             sfh,
@@ -403,21 +459,31 @@ def main() -> None:
                 "failed_mismatch_frac",
                 "passing_mate_alignments",
                 "unique_passing_read_pairs",
-            ],
+            ] + hist_fieldnames,
             delimiter="\t",
         )
         stats_writer.writeheader()
-        stats_writer.writerow({
-            "t_id": args.taxid,
-            "total_sam_records": total_sam_records,
-            "unmapped_or_nonprimary": unmapped_or_nonprimary,
-            "primary_mapped_records": primary_mapped_records,
-            "failed_mapq": failed_mapq,
-            "failed_align_frac": failed_align_frac,
-            "failed_mismatch_frac": failed_mismatch_frac + failed_mate_pair,
-            "passing_mate_alignments": passing_records,
-            "unique_passing_read_pairs": unique_read_pairs,
-        })
+        stats_writer.writerow(row_dict)
+
+    # Also write the dedicated 1%-bin <99% identity histogram TSV alongside mapping_stats.tsv
+    out_hist_tsv = out_stats.parent / f"{args.taxid}.identity_histogram_lt99.tsv"
+    tot_lt99_pairs = max(1, sum(lt99_pair_hist.values()))
+    with open(out_hist_tsv, "w", encoding="utf-8", newline="") as hfh:
+        hw = csv.DictWriter(
+            hfh,
+            fieldnames=["id_bin", "label", "pair_count", "mate_count", "pair_share"],
+            delimiter="\t",
+        )
+        hw.writeheader()
+        for b in range(89, 99):
+            lbl = "<90" if b == 89 else str(b)
+            hw.writerow({
+                "id_bin": b,
+                "label": lbl,
+                "pair_count": lt99_pair_hist[b],
+                "mate_count": lt99_mate_hist[b],
+                "pair_share": f"{lt99_pair_hist[b] / float(tot_lt99_pairs):.6f}",
+            })
 
     logger.info(
         f"TaxID {args.taxid}: {unique_read_pairs:,} strict proper read pairs ({passing_records:,} mate alignments) "

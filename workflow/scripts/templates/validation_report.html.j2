@@ -571,6 +571,48 @@
       </div>
     </details>
 
+    <!-- Diagnostic Dashboard Panel Reference Guide -->
+    <details class="glossary-card">
+      <summary class="glossary-summary">
+        <span>📊 Diagnostic Dashboard Panel Guide — Widescreen (Panels A–J) &amp; Compact 2&times;2 Figures (Click to Expand / Collapse)</span>
+        <span style="font-size:0.8rem; color:#64748b;">How to read each panel</span>
+      </summary>
+      <div class="glossary-body">
+        <div class="glossary-item clean">
+          <div class="glossary-item-title"><strong>Panel A &mdash; Bin CR Length vs. Mapped Reads (+ Top Structural Strip)</strong></div>
+          <div>Regresses mapped eDNA read pairs (<i>Y</i>) against Classifiable Region length (<i>X</i>, across 100 linear-capacity bins) with intra-bin <code>p25–p75</code> coverage whiskers and a slim top strip showing distinct contigs per bin and median CR length (kb). Colored by <strong>516w Temporal Cosine Similarity</strong> (horizontal colorbar shared between Panels A &amp; C).</div>
+        </div>
+        <div class="glossary-item pruned">
+          <div class="glossary-item-title"><strong>Panel B &mdash; Recursive Outlier Pruning Trajectory</strong></div>
+          <div>Tracks Pearson correlation <i>R</i> (blue) and Retained CR sequence % (orange) across iterative outlier bin pruning steps against the validation thresholds (<i>R</i> &ge; 0.90, Retained CR &ge; 50%).</div>
+        </div>
+        <div class="glossary-item clean">
+          <div class="glossary-item-title"><strong>Panel C &mdash; Genome-Wide CR Manhattan Plot</strong></div>
+          <div>Plots read density (<code>Reads / kb</code>) for every CR segment along cumulative CR coordinates (<code>bin_001 &rarr; bin_100</code>) on a <code>symlog(linthresh=1.0)</code> scale (slate band = linear <code>0 &le; y &le; 1</code>; log<sub>10</sub> above <code>y = 1</code>), colored by 516w Cosine Similarity with rose vertical bands marking pruned bins.</div>
+        </div>
+        <div class="glossary-item occupancy">
+          <div class="glossary-item-title"><strong>Panel D &mdash; Outlier Quadrant (Size = Intra-Bin Length-Weighted Gini)</strong></div>
+          <div>Plots Excess Depth (<code>log<sub>2</sub>(Observed / Expected Clean OLS Reads)</code>) vs. 516w Cosine Similarity to separate <strong>Endogenous Multi-Copy Repeats</strong> (high depth, high cosine similarity) from <strong>Foreign Cross-Mapping Artifacts</strong> (high depth, low cosine similarity). Marker size encodes the <strong>Intra-Bin Length-Weighted Gini Coefficient (<i>G<sub>b</sub></i> &in; [0, 1])</strong>.</div>
+        </div>
+        <div class="glossary-item pruned">
+          <div class="glossary-item-title"><strong>Panels E1, E2 &amp; E3 &mdash; Read Attrition, % Identity Spectrum &amp; Genomic CR Funnel</strong></div>
+          <div><strong>E1:</strong> 5-stage read attrition funnel (Raw Kraken &rarr; MAPQ &ge; 30 &rarr; &ge;80% Aligned &rarr; &ge;99% Identity &rarr; Clean Bins). <strong>E2:</strong> 1%-bin sequence identity spectrum (<code>[90–100%]</code>). <strong>E3 (under E2):</strong> 3-stage genomic sequence funnel (<code>1. Total Assembly Size &rarr; 2. Total CR Size &rarr; 3. Pruned CR Size (Clean)</code>).</div>
+        </div>
+        <div class="glossary-item clean">
+          <div class="glossary-item-title"><strong>Panels F, G &amp; H &mdash; 1:1 Weekly Correlation, 516-Week Series &amp; Seasonal Phenology</strong></div>
+          <div><strong>F:</strong> Weekly raw vs. clean-bin pairs on <code>log<sub>10</sub>(Reads+1)</code> axes (reporting linear <i>R</i>, <i>R</i><sub>log</sub>, and Spearman &rho;). <strong>G:</strong> 10-year (516-week) longitudinal time series stacked below Panel C. <strong>H:</strong> 3-week circular-smoothed seasonal phenology across Jan–Dec with dual Y-axes (<code>% of annual signal</code> and <code>Mean Clean Pairs / Week</code>).</div>
+        </div>
+        <div class="glossary-item excluded">
+          <div class="glossary-item-title"><strong>Panel I &mdash; Bin Temporal Sample Occupancy (% of 516 Weeks Occupied)</strong></div>
+          <div>Plots each bin's Sample Occupancy (<code>% of 516 weekly samples with &ge;1 read pair</code>) vs. 516w Cosine Similarity, with a top marginal occupancy histogram, Clean Median Occupancy, and Effective Active Weeks (<i>N</i><sub>eff</sub> = 1/&sum;<i>p<sub>t</sub></i><sup>2</sup>).</div>
+        </div>
+        <div class="glossary-item clean">
+          <div class="glossary-item-title"><strong>Panel J &mdash; Hierarchical Clustermap (100 Bins &times; Active Monitoring Weeks)</strong></div>
+          <div>Clusters all 100 bins on <code>log<sub>10</sub>(Reads/kb + 1)</code> using Ward minimum-variance linkage (<code>method="ward"</code>, <code>metric="euclidean"</code>, <code>optimal_ordering=True</code>), with 3 vertical annotation strips (<code>CosSim</code>, <code>Occ%</code>, <code>Pruned</code>) and 2 slim horizontal colorbars (<code>Occ% Strip</code> and <code>Bin Read Density</code>).</div>
+        </div>
+      </div>
+    </details>
+
     <!-- Master Validation Summary Table -->
     <div class="section-card">
       <div class="section-header">

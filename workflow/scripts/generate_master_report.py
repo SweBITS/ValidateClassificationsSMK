@@ -113,7 +113,9 @@ def main() -> None:
     parser.add_argument("--out-master-tsv", required=True, help="Output TSV: validation_master_summary.tsv")
     parser.add_argument("--out-master-parquet", required=True, help="Output Parquet: validation_master_summary.parquet")
     parser.add_argument("--out-timeseries-parquet", required=True, help="Output Parquet: validated_timeseries_long.parquet")
-    parser.add_argument("--out-html", required=True, help="Output HTML: validation_report.html")
+    parser.add_argument("--out-html", required=True, help="Output HTML (2x2 compact report): validation_report.html")
+    parser.add_argument("--out-html-2x2", default=None, help="Explicit output HTML for 2x2 report: validation_report_2x2.html")
+    parser.add_argument("--out-html-widescreen", default=None, help="Output HTML for widescreen report: validation_report_widescreen.html")
     parser.add_argument("--log", default=None, help="Log file path")
     args = parser.parse_args()
 
@@ -144,7 +146,8 @@ def main() -> None:
 
     # 3. Build Master Summary rows and HTML species cards for EVERY target in config/targets.tsv
     master_rows: List[Dict[str, Any]] = []
-    species_cards: List[Dict[str, Any]] = []
+    species_cards_2x2: List[Dict[str, Any]] = []
+    species_cards_wide: List[Dict[str, Any]] = []
     weekly_frames: List[pl.DataFrame] = []
 
     # Load baseline raw weekly long table for fallback on Stage 0 / Stage 1 excluded species
@@ -158,7 +161,14 @@ def main() -> None:
 
         sp_val_dir = val_dir / f"{tid}_{slug}"
         metrics_json_path = sp_val_dir / f"{tid}.validation_metrics.json"
-        png_path = sp_val_dir / f"{tid}.diagnostic_3panel.png"
+        png_2x2_path = sp_val_dir / f"{tid}.diagnostic_2x2.png"
+        if not png_2x2_path.is_file():
+            png_2x2_path = sp_val_dir / f"{tid}.diagnostic_3panel.png"
+        png_wide_path = sp_val_dir / f"{tid}.diagnostic_widescreen.png"
+        if not png_wide_path.is_file():
+            png_wide_path = sp_val_dir / f"{tid}.diagnostic_8panel.png"
+        if not png_wide_path.is_file():
+            png_wide_path = png_2x2_path
         traj_path = sp_val_dir / f"{tid}.pruning_trajectory.tsv"
         weekly_path = sp_val_dir / f"{tid}.weekly_timeseries_516w.tsv"
 
@@ -261,12 +271,19 @@ def main() -> None:
         else:
             status_group = "EXCLUDED"
 
-        card_dict = dict(row_dict)
-        card_dict["species_slug"] = slug
-        card_dict["status_group"] = status_group
-        card_dict["plot_data_uri"] = encode_png_base64(png_path)
-        card_dict["pruned_steps"] = pruned_steps_list
-        species_cards.append(card_dict)
+        card_2x2 = dict(row_dict)
+        card_2x2["species_slug"] = slug
+        card_2x2["status_group"] = status_group
+        card_2x2["plot_data_uri"] = encode_png_base64(png_2x2_path)
+        card_2x2["pruned_steps"] = pruned_steps_list
+        species_cards_2x2.append(card_2x2)
+
+        card_wide = dict(row_dict)
+        card_wide["species_slug"] = slug
+        card_wide["status_group"] = status_group
+        card_wide["plot_data_uri"] = encode_png_base64(png_wide_path)
+        card_wide["pruned_steps"] = pruned_steps_list
+        species_cards_wide.append(card_wide)
 
     # 4. Write validation_master_summary.tsv & validation_master_summary.parquet via Polars
     master_df = pl.DataFrame(master_rows)
@@ -286,7 +303,7 @@ def main() -> None:
         all_ts_df = pl.DataFrame()
     all_ts_df.write_parquet(out_ts_pq)
 
-    # 6. Compute Executive KPI counts & render validation_report.html
+    # 6. Compute Executive KPI counts & render both 2x2 and widescreen HTML reports
     kpi = {
         "total_targets": len(master_rows),
         "validated_clean": sum(1 for r in master_rows if r["validation_status"] == ValidationStatus.VALIDATED_CLEAN),
@@ -304,20 +321,37 @@ def main() -> None:
         autoescape=jinja2.select_autoescape(["html", "xml"]),
     )
     template = env.get_template(template_path.name)
-    html_content = template.render(
+    html_2x2 = template.render(
         wf_info=wf_info,
         config=cfg,
         kpi=kpi,
-        species_cards=species_cards,
+        species_cards=species_cards_2x2,
         benchmarks=benchmarks_summary,
     )
 
     out_html = Path(args.out_html)
     out_html.parent.mkdir(parents=True, exist_ok=True)
-    out_html.write_text(html_content, encoding="utf-8")
+    out_html.write_text(html_2x2, encoding="utf-8")
+
+    out_html_2x2 = Path(args.out_html_2x2) if args.out_html_2x2 else out_html.parent / "validation_report_2x2.html"
+    if out_html_2x2.resolve() != out_html.resolve():
+        out_html_2x2.parent.mkdir(parents=True, exist_ok=True)
+        out_html_2x2.write_text(html_2x2, encoding="utf-8")
+
+    out_html_wide = Path(args.out_html_widescreen) if args.out_html_widescreen else out_html.parent / "validation_report_widescreen.html"
+    html_wide = template.render(
+        wf_info=wf_info,
+        config=cfg,
+        kpi=kpi,
+        species_cards=species_cards_wide,
+        benchmarks=benchmarks_summary,
+    ).replace("max-width: 1520px;", "max-width: 1880px;")
+    out_html_wide.parent.mkdir(parents=True, exist_ok=True)
+    out_html_wide.write_text(html_wide, encoding="utf-8")
 
     logger.info(
-        f"Master validation report generated: {kpi['validated_total']}/{kpi['total_targets']} validated "
+        f"Master validation reports generated ({out_html_2x2.name} & {out_html_wide.name}): "
+        f"{kpi['validated_total']}/{kpi['total_targets']} validated "
         f"({kpi['validated_clean']} clean, {kpi['validated_pruned']} pruned), "
         f"{kpi['failed_total']} failed, {kpi['excluded_total']} excluded."
     )
