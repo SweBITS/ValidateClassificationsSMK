@@ -69,6 +69,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.ticker as mticker
 import matplotlib.colors as mcolors
+import matplotlib.patheffects as mpe
 import matplotlib.transforms as mtransforms
 from matplotlib.patches import Polygon, Patch
 import numpy as np
@@ -1104,15 +1105,16 @@ def render_10panel_figure(
     ax_e2 = fig.add_subplot(gs_e_right[0])
     ax_e3 = fig.add_subplot(gs_e_right[1])
 
-    # E1: True Centered Symmetrical Trapezoidal Funnel Plot (Reads)
+    # E1: True Centered Symmetrical Trapezoidal Funnel Plot (Reads — Strictly Proportional Widths)
     stages = funnel["stage_labels"]
     counts = np.array(funnel["stage_counts"], dtype=np.float64)
     max_c = max(1.0, float(counts[0]))
-    widths = 0.46 + 0.50 * np.clip(counts / max_c, 0.0, 1.0)
+    widths = np.maximum(0.008, 0.96 * np.clip(counts / max_c, 0.0, 1.0))
     n_st = len(stages)
     y_centers = np.arange(n_st - 1, -1, -1, dtype=np.float64)
     band_h = 0.52
     stage_colors = ["#64748b", "#0284c7", "#2563eb", "#0d9488", palette["primary"]]
+    halo_effects = [mpe.withStroke(linewidth=2.8, foreground="white")]
 
     for i in range(n_st):
         yc = y_centers[i]
@@ -1137,18 +1139,19 @@ def render_10panel_figure(
         ax_e1.add_patch(Polygon(rect_verts, closed=True, facecolor=stage_colors[i], alpha=0.92, edgecolor="white", linewidth=1.0, zorder=3))
 
         pct_tot = 100.0 * counts[i] / max_c
+        wide_enough = w >= 0.72
         ax_e1.text(
             0.0, yc + 0.08, stages[i],
             ha="center", va="center", fontsize=7.2, fontweight="bold",
-            color="white" if w > 0.42 else "#0f172a",
-            bbox=dict(boxstyle="round,pad=0.12", fc="white", ec="none", alpha=0.75) if w <= 0.42 else None,
+            color="white" if wide_enough else "#0f172a",
+            path_effects=None if wide_enough else halo_effects,
             zorder=5
         )
         ax_e1.text(
             0.0, yc - 0.13, f"{fmt_compact(counts[i])} ({pct_tot:.1f}%)",
             ha="center", va="center", fontsize=7.1, fontweight="bold",
-            color="#f8fafc" if w > 0.42 else "#1e293b",
-            bbox=dict(boxstyle="round,pad=0.10", fc="white", ec="none", alpha=0.75) if w <= 0.42 else None,
+            color="#f8fafc" if wide_enough else "#1e293b",
+            path_effects=None if wide_enough else halo_effects,
             zorder=5
         )
 
@@ -1204,7 +1207,7 @@ def render_10panel_figure(
     # E3: Reference Sequence Funnel (Total Assembly Size -> Total CR Size -> Total CR Size After Pruning)
     asm_counts = np.array([float(total_asm_bp), float(total_cr_bp), float(retained_cr_bp)], dtype=np.float64)
     max_asm = max(1.0, float(asm_counts[0]))
-    widths_e3 = 0.46 + 0.50 * np.clip(asm_counts / max_asm, 0.0, 1.0)
+    widths_e3 = np.maximum(0.008, 0.96 * np.clip(asm_counts / max_asm, 0.0, 1.0))
     stages_e3 = [
         "1. Total Genome Assembly",
         "2. Classifiable Regions (CR)",
@@ -1244,18 +1247,19 @@ def render_10panel_figure(
         ]
         ax_e3.add_patch(Polygon(rect_verts, closed=True, facecolor=colors_e3[i], alpha=0.92, edgecolor="white", linewidth=1.0, zorder=3))
 
+        wide_enough_e3 = w >= 0.78
         ax_e3.text(
             0.0, yc + 0.09, stages_e3[i],
             ha="center", va="center", fontsize=6.9, fontweight="bold",
-            color="white" if w > 0.48 else "#0f172a",
-            bbox=dict(boxstyle="round,pad=0.10", fc="white", ec="none", alpha=0.78) if w <= 0.48 else None,
+            color="white" if wide_enough_e3 else "#0f172a",
+            path_effects=None if wide_enough_e3 else halo_effects,
             zorder=5
         )
         ax_e3.text(
             0.0, yc - 0.14, sublabels_e3[i],
             ha="center", va="center", fontsize=6.7, fontweight="bold",
-            color="#f8fafc" if w > 0.48 else "#1e293b",
-            bbox=dict(boxstyle="round,pad=0.08", fc="white", ec="none", alpha=0.78) if w <= 0.48 else None,
+            color="#f8fafc" if wide_enough_e3 else "#1e293b",
+            path_effects=None if wide_enough_e3 else halo_effects,
             zorder=5
         )
 
