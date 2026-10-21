@@ -429,6 +429,95 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       display: block;
+      cursor: zoom-in;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    .diagnostic-img:hover {
+      border-color: #94a3b8;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.10);
+    }
+
+    /* Full-Screen Figure Lightbox Modal */
+    .lightbox-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000000;
+      background: rgba(15, 23, 42, 0.95);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .lightbox-overlay.active {
+      display: flex;
+    }
+    .lightbox-toolbar {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.65rem 1.25rem;
+      background: rgba(15, 23, 42, 0.98);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+      color: #f8fafc;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+    .lightbox-title {
+      font-weight: 600;
+      color: #e2e8f0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .lightbox-actions {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .lightbox-btn {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 6px;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .lightbox-btn:hover {
+      background: rgba(255, 255, 255, 0.24);
+    }
+    .lightbox-stage {
+      flex: 1;
+      width: 100%;
+      overflow: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.75rem;
+    }
+    .lightbox-stage.zoomed {
+      align-items: flex-start;
+      justify-content: flex-start;
+    }
+    .lightbox-img {
+      max-width: 98vw;
+      max-height: calc(100vh - 64px);
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: 6px;
+      background: #ffffff;
+      cursor: zoom-in;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    .lightbox-stage.zoomed .lightbox-img {
+      max-width: none;
+      max-height: none;
+      width: 165vw;
+      cursor: zoom-out;
     }
     details.pruned-details {
       margin-top: 0.9rem;
@@ -592,7 +681,7 @@
         </div>
         <div class="glossary-item occupancy">
           <div class="glossary-item-title"><strong>Panel D &mdash; Outlier Quadrant (Size = Intra-Bin Length-Weighted Gini)</strong></div>
-          <div>Plots Excess Depth (<code>log<sub>2</sub>(Observed / Expected Clean OLS Reads)</code>) vs. 516w Cosine Similarity to separate <strong>Endogenous Multi-Copy Repeats</strong> (high depth, high cosine similarity) from <strong>Foreign Cross-Mapping Artifacts</strong> (high depth, low cosine similarity). Marker size encodes the <strong>Intra-Bin Length-Weighted Gini Coefficient (<i>G<sub>b</sub></i> &in; [0, 1])</strong>.</div>
+          <div>Plots Excess Depth (<code>log<sub>2</sub>(Observed / Length-Proportional Clean Expected Reads)</code>) vs. 516w Cosine Similarity to separate <strong>Endogenous Multi-Copy Repeats</strong> (high depth, high cosine similarity) from <strong>Foreign Cross-Mapping Artifacts</strong> (high depth, low cosine similarity). Marker size encodes the <strong>Intra-Bin Length-Weighted Gini Coefficient (<i>G<sub>b</sub></i> &in; [0, 1])</strong>.</div>
         </div>
         <div class="glossary-item pruned">
           <div class="glossary-item-title"><strong>Panels E1, E2 &amp; E3 &mdash; Read Attrition, % Identity Spectrum &amp; Genomic CR Funnel</strong></div>
@@ -728,24 +817,24 @@
         </div>
         <div class="metrics-strip">
           <div class="metric-box">
-            <div class="m-lbl">Clade Reads (516w)</div>
-            <div class="m-val">{{ "{:,}".format(sp.total_clade_reads) }} ({{ sp.weeks_present }}w)</div>
+            <div class="m-lbl">Clade Reads (N Samples)</div>
+            <div class="m-val">{{ "{:,}".format(sp.total_clade_reads) }} ({{ sp.weeks_present }}, {{ "%.1f"|format(sp.samples_present_pct) }}%)</div>
           </div>
           <div class="metric-box">
             <div class="m-lbl">Selected Reference</div>
             <div class="m-val">{{ sp.chosen_accession }} ({{ sp.chosen_level }})</div>
           </div>
           <div class="metric-box">
+            <div class="m-lbl">N50 / FASTA Entries</div>
+            <div class="m-val">{{ "{:,}".format(sp.n50_bp) }} bp ({{ "{:,}".format(sp.kept_contig_count) }} entries)</div>
+          </div>
+          <div class="metric-box">
             <div class="m-lbl">&ge;1 kb Contig Filter</div>
             <div class="m-val">{{ "{:,}".format(sp.kept_assembly_bp) }} bp ({{ "%.1f"|format(100.0 - sp.discarded_bp_pct) }}% kept)</div>
           </div>
           <div class="metric-box">
-            <div class="m-lbl">2x CR Sequence</div>
+            <div class="m-lbl">CR Length (Pre-Pruning)</div>
             <div class="m-val">{{ "{:,}".format(sp.cr_bp_2x) }} bp ({{ "%.1f"|format(sp.cr_pct_of_filtered_assembly_2x) }}%)</div>
-          </div>
-          <div class="metric-box">
-            <div class="m-lbl">4x CR Sequence</div>
-            <div class="m-val">{{ "{:,}".format(sp.cr_bp_4x) }} bp ({{ "%.1f"|format(sp.cr_pct_of_filtered_assembly_4x) }}%)</div>
           </div>
           <div class="metric-box">
             <div class="m-lbl">Initial &rarr; Final R</div>
@@ -757,12 +846,12 @@
           </div>
           <div class="metric-box">
             <div class="m-lbl">Clean-Bin Mapped Pairs</div>
-            <div class="m-val">{{ "{:,}".format(sp.retained_mapped_read_pairs) }} ({{ "%.1f"|format(sp.retained_mapped_reads_pct) }}%)</div>
+            <div class="m-val">{{ "{:,}".format(sp.retained_mapped_read_pairs) }} ({{ "%.1f"|format(sp.retained_pct_of_clade_reads) }}% clade / {{ "%.1f"|format(sp.retained_mapped_reads_pct) }}% CR)</div>
           </div>
         </div>
 
         {% if sp.plot_data_uri %}
-        <img class="diagnostic-img" src="{{ sp.plot_data_uri }}" alt="Diagnostic 4-panel plot for {{ sp.scientific_name }}" />
+        <img class="diagnostic-img" src="{{ sp.plot_data_uri }}" alt="Diagnostic plot for {{ sp.scientific_name }} (TaxID {{ sp.t_id }})" title="Click to view full-screen" onclick="openImageLightbox(this)" />
         {% endif %}
 
         {% if sp.pruned_steps %}
@@ -843,6 +932,21 @@
   </div>
 
   <div id="globalTooltip" class="global-tooltip" role="tooltip" aria-hidden="true"></div>
+
+  <!-- Full-Screen Figure Lightbox Modal -->
+  <div id="imageLightbox" class="lightbox-overlay" role="dialog" aria-modal="true" aria-label="Full-screen diagnostic figure" onclick="handleLightboxBackdropClick(event)">
+    <div class="lightbox-toolbar" onclick="event.stopPropagation()">
+      <div id="lightboxTitle" class="lightbox-title">Diagnostic Figure</div>
+      <div class="lightbox-actions">
+        <button type="button" class="lightbox-btn" id="lightboxZoomBtn" onclick="toggleLightboxZoom()">🔍 Zoom 1:1 / Pan</button>
+        <button type="button" class="lightbox-btn" onclick="toggleNativeFullscreen()">⛶ Browser Fullscreen</button>
+        <button type="button" class="lightbox-btn" onclick="closeImageLightbox()">✕ Close (Esc)</button>
+      </div>
+    </div>
+    <div id="lightboxStage" class="lightbox-stage">
+      <img id="lightboxImg" class="lightbox-img" src="" alt="" onclick="event.stopPropagation(); toggleLightboxZoom();" />
+    </div>
+  </div>
 
   <script>
     let currentGroup = 'ALL';
@@ -1064,6 +1168,76 @@
     window.addEventListener('resize', function() {
       if (currentTooltipTarget) {
         positionTooltip(currentTooltipTarget);
+      }
+    });
+
+    // Full-Screen Figure Lightbox Viewer
+    const lightboxEl = document.getElementById('imageLightbox');
+    const lightboxImg = document.getElementById('lightboxImg');
+    const lightboxTitle = document.getElementById('lightboxTitle');
+    const lightboxStage = document.getElementById('lightboxStage');
+    const lightboxZoomBtn = document.getElementById('lightboxZoomBtn');
+
+    function openImageLightbox(imgEl) {
+      if (!lightboxEl || !lightboxImg || !imgEl) return;
+      lightboxImg.src = imgEl.src;
+      lightboxImg.alt = imgEl.alt || 'Diagnostic Figure';
+      if (lightboxTitle) {
+        lightboxTitle.textContent = imgEl.alt || 'Diagnostic Figure';
+      }
+      if (lightboxStage) {
+        lightboxStage.classList.remove('zoomed');
+      }
+      if (lightboxZoomBtn) {
+        lightboxZoomBtn.textContent = '🔍 Zoom 1:1 / Pan';
+      }
+      lightboxEl.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeImageLightbox() {
+      if (!lightboxEl) return;
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+      lightboxEl.classList.remove('active');
+      if (lightboxImg) lightboxImg.src = '';
+      document.body.style.overflow = '';
+    }
+
+    function toggleLightboxZoom() {
+      if (!lightboxStage) return;
+      const isZoomed = lightboxStage.classList.toggle('zoomed');
+      if (lightboxZoomBtn) {
+        lightboxZoomBtn.textContent = isZoomed ? '🗗 Fit to Screen' : '🔍 Zoom 1:1 / Pan';
+      }
+    }
+
+    function toggleNativeFullscreen() {
+      if (!lightboxEl) return;
+      if (!document.fullscreenElement) {
+        if (lightboxEl.requestFullscreen) {
+          lightboxEl.requestFullscreen().catch(() => {});
+        }
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    function handleLightboxBackdropClick(e) {
+      if (e.target === lightboxEl || e.target === lightboxStage) {
+        closeImageLightbox();
+      }
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (!lightboxEl || !lightboxEl.classList.contains('active')) return;
+      if (e.key === 'Escape') {
+        closeImageLightbox();
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleNativeFullscreen();
+      } else if (e.key === 'z' || e.key === 'Z') {
+        toggleLightboxZoom();
       }
     });
   </script>

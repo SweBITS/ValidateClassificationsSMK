@@ -39,6 +39,19 @@ At the top of every figure:
 | **`EXCLUDED_INSUFFICIENT_CONTIG_LENGTH`** | `#f1f5f9` / `#475569` / `#cbd5e1` *(Slate Gray)* | **Not tested (reference too small after filtering).** Removing short contigs ($< 1\text{ kb}$) leaves less than $100\text{ kb}$ of usable sequence. | Kept assembly length $< 100,000\text{ bp}$ after removing contigs $< 1,000\text{ bp}$ (Stage 1 Gate). |
 | **`EXCLUDED_FILTERED_ASSEMBLY_PROPORTION`** | `#f1f5f9` / `#475569` / `#cbd5e1` *(Slate Gray)* | **Not tested (heavily fragmented draft assembly).** Over half of the genome assembly consists of tiny contigs ($< 1\text{ kb}$). | Discarded base pairs $> 50\%$ of raw assembly size at the $1,000\text{ bp}$ contig filter (Stage 1 Gate). |
 
+### Per-Species Metric Cards & Full-Screen Figure Viewer in the Merged HTML Reports
+
+Above each embedded figure in `validation_report_10panel.html` and `validation_report_4panel.html`, 8 summary cards display key species metrics:
+1. **`CLADE READS (N SAMPLES)`**: Total Kraken 2 clade read pairs across all 516 weekly samples, followed in parentheses by the number and percentage of positive samples (`≥ 1` clade read), e.g., `5,753,797 (333, 64.5%)`.
+2. **`SELECTED REFERENCE`**: Chosen NCBI/local genome assembly accession and assembly level (`Complete Genome`, `Chromosome`, `Scaffold`, or `Contig`).
+3. **`N50 / FASTA ENTRIES`**: Contig N50 length (`bp`) and total number of kept FASTA entries ($\ge 1\text{ kb}$) in the filtered reference assembly.
+4. **`≥1 KB CONTIG FILTER`**: Total base pairs retained after removing contigs $< 1,000\text{ bp}$ and the percentage of the raw assembly retained.
+5. **`CR LENGTH (PRE-PRUNING)`**: Total Classifiable Region (CR) sequence length (`bp` and `%` of filtered assembly) extracted in Stage 2 *before* Stage 5 outlier bin pruning.
+6. **`INITIAL → FINAL R`**: Linear Pearson correlation $R$ across all 100 bins before pruning vs. across retained clean bins after pruning.
+7. **`BINS PRUNED / CR KEPT`**: Number of outlier bins removed in Stage 5 and the percentage of total CR sequence retained in the clean bin set.
+8. **`CLEAN-BIN MAPPED PAIRS`**: Number of high-confidence read pairs mapping to the retained clean CRs, along with their percentage of total clade reads and percentage of all CR-mapped read pairs (`% clade / % CR`).
+- **Full-Screen Lightbox Viewer**: Clicking any diagnostic figure in the HTML report opens a full-screen modal with `🔍 Zoom 1:1 / Pan` (`Z` or click image), `⛶ Browser Fullscreen` (`F`), and `✕ Close` (`Esc` or click backdrop).
+
 ---
 
 ## 3. Widescreen Grid Layout & Column Alignment
@@ -138,7 +151,7 @@ The widescreen dashboard uses a **unified `3 × 4` column-aligned grid** so that
 #### 1. Plain-English Guide
 - **Core question**: *When a genomic bin has unexpectedly high read coverage, is it an **endogenous repeat** belonging to the target species itself, or a **foreign cross-mapping artifact** from a different organism?*
 - Every bin (`100` total) is plotted along two diagnostic axes:
-  1. **X-axis (`Excess Read Depth`)**: How many more (or fewer) reads the bin received compared to what the clean linear regression predicted ($\log_2$ fold-change: `0` = exact match to prediction, `+1` = $2\times$ expected reads, `+2` = $4\times$, `+3` = $8\times$).
+  1. **X-axis (`Excess Read Depth`)**: How many more (or fewer) reads the bin received compared to its length-proportional share of the clean classifiable genome ($\log_2$ fold-change relative to mean clean read density: `0` = exact match to clean genome average `Reads/kb`, `+1` = $2\times$ expected reads, `+2` = $4\times$, `+3` = $8\times$).
   2. **Y-axis (`Temporal Concordance / Cosine Similarity`)**: How closely the bin's 516-week time series matches the species' clean 516-week time series (`1.0` = identical weekly pattern; `0.0` = occurs in completely different weeks).
 - This divides high-coverage outlier bins (`▲`) into two biologically distinct quadrants on the right:
   - **Upper-Right (`Endogenous Multi-Copy Repeat`)**: The bin has excess read depth ($>2\times$ expected), **but its reads appear in the exact same weeks as the rest of the species' genome** ($\text{Cosine Sim} \ge 0.60$). This happens when an uncollapsed tandem repeat, rRNA array, or transposable element from the target species itself is present in multiple copies in the organism's cells.
@@ -148,9 +161,12 @@ The widescreen dashboard uses a **unified `3 × 4` column-aligned grid** so that
   - **Large dot (`Gini ≥ 0.85`, CR Hotspot)**: Almost all reads in the bin are concentrated into one or a few tiny CR segments.
 
 #### 2. Technical & Mathematical Specification
-- **Excess Read Depth ($\log_2[\text{Observed} / \text{Expected}]$)**:
-  - For bin $b$ with observed read pairs $Y_b$ and clean OLS predicted read pairs $\hat{Y}_b^{\text{clean}} = \max(1.0, \hat{\beta}_0^{\text{clean}} + \hat{\beta}_1^{\text{clean}} X_b)$:
-    $$\text{Excess Depth}_b = \log_2 \!\left( \max\!\left(0.125,\, \frac{Y_b + 1}{\hat{Y}_b^{\text{clean}} + 1}\right) \right)$$
+- **Excess Read Depth ($\log_2[\text{Observed} / \text{Expected}]$ via Length-Proportional Clean Expectation)**:
+  - Why length-proportional clean density instead of unconstrained OLS $\hat{Y}_b = \hat{\beta}_0 + \hat{\beta}_1 X_b$? In failed detections where a single small bin holds almost all reads (e.g., `bin_001`), an unconstrained OLS line has a negative slope ($\hat{\beta}_1 < 0$) that crosses zero and predicts negative expected reads for large bins; similarly, a negative Y-intercept ($\hat{\beta}_0 < 0$) under-predicts expected reads in the smallest bins.
+  - Enforcing the physical boundary condition $E(X=0) = 0$, let $\bar{d}_{\mathcal{R}} = \frac{\sum_{j \in \mathcal{R}} Y_j}{\sum_{j \in \mathcal{R}} X_j}$ be the mean read density (read pairs per bp) across retained clean bins $\mathcal{R}$. The length-proportional expected read count for bin $b$ of CR length $X_b$ is:
+    $$E_b^{\text{prop}} = \max\!\left(1.0,\; \bar{d}_{\mathcal{R}} \cdot X_b\right) = \max\!\left(1.0,\; Y_{\text{clean, total}} \cdot \frac{X_b}{L_{\text{CR, clean}}}\right)$$
+  - The horizontal coordinate in Panel D is then:
+    $$\text{Excess Depth}_b = \log_2 \!\left( \max\!\left(0.125,\, \frac{Y_b + 1}{E_b^{\text{prop}} + 1}\right) \right)$$
 - **516-Week Temporal Cosine Similarity ($\text{CosSim}_b$)**:
   - Let $\mathbf{v}_b = (v_{b,1}, \dots, v_{b,516})$ be the weekly read-pair vector of bin $b$, and $\mathbf{C} = \sum_{j \in \mathcal{R}} \mathbf{v}_j$ be the aggregate weekly read-pair vector across all retained clean bins:
     $$\text{CosSim}_b = \frac{\mathbf{v}_b \cdot \mathbf{C}}{\|\mathbf{v}_b\|_2 \, \|\mathbf{C}\|_2} \in [0, 1]$$

@@ -476,12 +476,22 @@ def compute_species_enhanced_data(
     )
     cr_excess_map = {r["bin_id"]: r for r in cr_excess_df.iter_rows(named=True)}
 
+    # Length-proportional clean CR read density (reads per bp across retained bins) for Panel D:
+    # Enforces E(L=0) = 0 and strictly non-negative expectation even when unconstrained OLS has
+    # a negative slope (e.g. single-bin spike failures) or a negative Y-intercept.
+    ret_cr_bp_sum = sum(float(r["actual_cr_bp"]) for r in bin_rows if r["is_retained"].lower() == "true")
+    ret_reads_sum = sum(float(r["mapped_reads"]) for r in bin_rows if r["is_retained"].lower() == "true")
+    if ret_cr_bp_sum <= 0:
+        ret_cr_bp_sum = max(1.0, sum(float(r["actual_cr_bp"]) for r in bin_rows))
+        ret_reads_sum = sum(float(r["mapped_reads"]) for r in bin_rows)
+    clean_density_per_bp = ret_reads_sum / max(1.0, ret_cr_bp_sum)
+
     enhanced_bins: List[Dict[str, Any]] = []
     for b_i, r in enumerate(bin_rows):
         bid = r["bin_id"]
         actual_bp = float(r["actual_cr_bp"])
         mapped_r = float(r["mapped_reads"])
-        final_yhat = max(1.0, float(r["final_y_hat"]))
+        exp_reads_prop = max(1.0, actual_bp * clean_density_per_bp)
         cr_st = bin_cr_map.get(bid, {})
         id_st = bin_id_stats_map.get(bid, {})
         ex_st = cr_excess_map.get(bid, {})
@@ -489,7 +499,7 @@ def compute_species_enhanced_data(
         cov_max = float(cr_st.get("cr_cov_max", 0.0))
         gini_val = float(bin_gini_map.get(bid, 0.0))
 
-        log2_oe = math.log2(max(0.125, (mapped_r + 1.0) / (final_yhat + 1.0)))
+        log2_oe = math.log2(max(0.125, (mapped_r + 1.0) / (exp_reads_prop + 1.0)))
         occ_pct = 100.0 * float(bin_active_weeks[b_i]) / max(1, n_weeks)
 
         rec = dict(r)
@@ -1194,10 +1204,7 @@ def render_10panel_figure(
     # E3: Reference Sequence Funnel (Total Assembly Size -> Total CR Size -> Total CR Size After Pruning)
     asm_counts = np.array([float(total_asm_bp), float(total_cr_bp), float(retained_cr_bp)], dtype=np.float64)
     max_asm = max(1.0, float(asm_counts[0]))
-    w1_e3 = 0.96
-    w2_e3 = max(0.76, min(0.88, 0.54 + 0.42 * float(asm_counts[1] / max_asm)))
-    w3_e3 = max(0.66, min(w2_e3 - 0.05, 0.50 + 0.42 * float(asm_counts[2] / max_asm)))
-    widths_e3 = np.array([w1_e3, w2_e3, w3_e3], dtype=np.float64)
+    widths_e3 = 0.46 + 0.50 * np.clip(asm_counts / max_asm, 0.0, 1.0)
     stages_e3 = [
         "1. Total Genome Assembly",
         "2. Classifiable Regions (CR)",

@@ -54,6 +54,29 @@ def encode_png_base64(png_path: Path) -> str:
     return f"data:image/png;base64,{b64}"
 
 
+def compute_n50_from_lengths_tsv(lengths_tsv: Path) -> int:
+    """Compute contig N50 (in bp) from a `{t_id}.{acc}.contig_lengths.tsv` file."""
+    if not lengths_tsv.is_file():
+        return 0
+    try:
+        with open(lengths_tsv, "r", encoding="utf-8") as fh:
+            lengths = sorted(
+                (int(row["length_bp"]) for row in csv.DictReader(fh, delimiter="\t") if row.get("length_bp")),
+                reverse=True,
+            )
+        if not lengths:
+            return 0
+        half_bp = sum(lengths) / 2.0
+        cum_bp = 0
+        for length in lengths:
+            cum_bp += length
+            if cum_bp >= half_bp:
+                return length
+        return lengths[-1]
+    except Exception:
+        return 0
+
+
 def collect_benchmarks_summary(benchmarks_dir: Path) -> List[Dict[str, Any]]:
     """
     Scan Snakemake `benchmarks/**/*.tsv` files and summarize job count, mean/max walltime (s),
@@ -152,6 +175,7 @@ def main() -> None:
 
     # Load baseline raw weekly long table for fallback on Stage 0 / Stage 1 excluded species
     raw_weekly_df = pl.read_csv(args.raw_weekly_long, separator="\t")
+    total_samples_count = int(raw_weekly_df["year_week"].n_unique()) if len(raw_weekly_df) > 0 else 516
 
     for s0 in stage0_rows:
         tid = int(s0["t_id"])
@@ -212,6 +236,18 @@ def main() -> None:
                     if int(trow["iteration"]) > 0:
                         pruned_steps_list.append(trow)
 
+        clean_acc_str = s0.get("clean_ncbi_accession", "NA")
+        lengths_tsv_path = Path("results/01_inputs/references") / f"{tid}.{clean_acc_str}.contig_lengths.tsv"
+        n50_bp = int(s1.get("n50_bp") or 0) or compute_n50_from_lengths_tsv(lengths_tsv_path)
+
+        total_clade_reads_val = int(s0.get("total_clade_reads") or 0)
+        weeks_present_val = int(s0.get("weeks_present") or 0)
+        samples_present_pct = round(100.0 * weeks_present_val / max(1, total_samples_count), 1)
+        retained_pairs_val = int(m.get("retained_mapped_read_pairs") or 0)
+        retained_pct_of_clade_reads = (
+            (100.0 * retained_pairs_val / total_clade_reads_val) if total_clade_reads_val > 0 else 0.0
+        )
+
         row_dict: Dict[str, Any] = {
             "t_id": tid,
             "t_species": s0["t_species"],
@@ -224,16 +260,18 @@ def main() -> None:
             "t_family": s0.get("t_family", ""),
             "t_genus": s0.get("t_genus", ""),
             "clade_size": int(s0.get("clade_size") or 0),
-            "total_clade_reads": int(s0.get("total_clade_reads") or 0),
-            "weeks_present": int(s0.get("weeks_present") or 0),
+            "total_clade_reads": total_clade_reads_val,
+            "weeks_present": weeks_present_val,
+            "samples_present_pct": samples_present_pct,
             "chosen_accession": s0.get("chosen_accession", "NA"),
-            "clean_ncbi_accession": s0.get("clean_ncbi_accession", "NA"),
+            "clean_ncbi_accession": clean_acc_str,
             "chosen_assembly_taxid": s0.get("chosen_assembly_taxid", "NA"),
             "chosen_level": s0.get("chosen_level", "NA"),
             "chosen_refseq_category": s0.get("chosen_refseq_category", "NA"),
             "selection_reason": s0.get("selection_reason", "NA"),
             "raw_contig_count": int(s1.get("raw_contig_count") or 0),
             "kept_contig_count": int(s1.get("kept_contig_count") or 0),
+            "n50_bp": n50_bp,
             "discarded_contig_pct": float(s1.get("discarded_contig_pct") or 0.0),
             "raw_assembly_bp": int(s1.get("raw_assembly_bp") or 0),
             "kept_assembly_bp": int(s1.get("kept_assembly_bp") or 0),
@@ -260,8 +298,9 @@ def main() -> None:
             "retained_cr_bp": int(m.get("retained_cr_bp") or 0),
             "retained_cr_pct": float(m.get("retained_cr_pct") or 0.0),
             "total_mapped_read_pairs": int(m.get("total_mapped_read_pairs") or 0),
-            "retained_mapped_read_pairs": int(m.get("retained_mapped_read_pairs") or 0),
+            "retained_mapped_read_pairs": retained_pairs_val,
             "retained_mapped_reads_pct": float(m.get("retained_mapped_reads_pct") or 0.0),
+            "retained_pct_of_clade_reads": round(retained_pct_of_clade_reads, 2),
             "validation_status": final_status,
             "status_reason": final_reason,
         }
