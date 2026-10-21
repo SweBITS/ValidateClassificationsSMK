@@ -56,11 +56,11 @@ Above each embedded figure in `validation_report_10panel.html` and `validation_r
 
 ## 3. Widescreen Grid Layout & Column Alignment
 
-The widescreen dashboard uses a **unified `3 × 4` column-aligned grid** so that related panels share identical horizontal widths across rows:
-- **Column 0 (Wide Left Column)**: **Panel A** (Row 0), **Panel C** (Row 1), and **Panel G** (Row 2) have the exact same width. A shared horizontal colorbar for **516-Week Temporal Concordance (Cosine Similarity)** sits between **Panel A** and **Panel C**.
+The widescreen dashboard uses a **unified `3 × 4` column-aligned grid** ordered alphabetically row-by-row from left to right (`A, B, C, D` in the top row; `E, F, G` in the second row; `H, I` in the bottom row; and `J` spanning Rows 1–2 on the right) so that related panels share identical horizontal widths across rows:
+- **Column 0 (Wide Left Column)**: **Panel A** (Row 0), **Panel E** (Row 1), and **Panel H** (Row 2) have the exact same width. A shared horizontal colorbar for **516-Week Temporal Concordance (Cosine Similarity)** sits between **Panel A** and **Panel E**.
 - **Column 1 (Center-Left Column)**: **Panel B** (Row 0) and **Panel F** (Row 1) have the exact same width.
-- **Column 2 (Center-Right Column)**: **Panel D** (Row 0) and **Panel I** (Row 1) have the exact same width. On Row 2, **Panel H** spans the combined width of Columns 1 and 2 (`B + D` / `F + I`).
-- **Column 3 (Wide Right Column)**: **Panel E (`E1`, `E2`, `E3`)** occupies Row 0, and **Panel J** spans Rows 1 and 2 (`double height`).
+- **Column 2 (Center-Right Column)**: **Panel C** (Row 0) and **Panel G** (Row 1) have the exact same width. On Row 2, **Panel I** spans the combined width of Columns 1 and 2 (`B + C` / `F + G`).
+- **Column 3 (Wide Right Column)**: **Panel D (`D1`, `D2`, `D3`)** occupies Row 0, and **Panel J** spans Rows 1 and 2 (`double height`).
 
 ---
 
@@ -80,7 +80,7 @@ The widescreen dashboard uses a **unified `3 × 4` column-aligned grid** so that
   - **Dashed gray line**: Initial linear fit across all 100 bins before pruning.
   - **Solid green/red line & shaded band**: Final linear fit and 95% confidence interval across the retained clean bins.
   - **Vertical error bars (whiskers)**: Show how evenly reads are spread *inside* each bin (from the 25th to the 75th percentile of CR coverage). Short whiskers mean reads are spread evenly across the CR segments inside that bin; tall whiskers mean a subset of CRs inside the bin has much higher coverage than the rest.
-  - **Dot color (shared horizontal colorbar below Panel A)**: Shows whether that bin's weekly appearance over the 10 years matches the species' overall 10-year seasonal rhythm (**Cosine Similarity** from `0.0` in dark purple to `1.0` in bright yellow-green).
+  - **Dot color (shared horizontal colorbar between Panels A & E)**: Shows whether that bin's weekly appearance over the 10 years matches the species' overall 10-year seasonal rhythm (**Cosine Similarity** from `0.0` in dark purple to `1.0` in bright yellow-green).
   - **Slim top strip**: Gray bars show how many distinct assembly contigs contributed to each bin; the blue line shows the median length (`kb`) of the individual CR segments inside that bin.
 
 #### 2. Technical & Mathematical Specification
@@ -121,31 +121,7 @@ The widescreen dashboard uses a **unified `3 × 4` column-aligned grid** so that
 
 ---
 
-### Panel C — Genome-Wide CR Coverage Map (Manhattan Plot)
-*Subtitle: `Read density across N CR segments (rose bands = pruned bins; gray band = linear 0–1 scale)`*
-
-#### 1. Plain-English Guide
-- **Core question**: *What does read coverage look like across every single Classifiable Region (CR) segment in the genome, rather than just summarized into 100 bins?*
-- Each dot is one individual **CR segment** (typically tens of thousands across a eukaryotic genome), plotted from left to right along cumulative classifiable genome coordinates (`bin_001` $\rightarrow$ `bin_100`, in Megabases).
-- The Y-axis shows **Read Density (`Reads / kb`)**:
-  - Because some CRs have `0` reads while repeat hotspots can have `1,000+ Reads / kb`, the Y-axis uses a **hybrid linear-logarithmic scale**:
-    - Inside the **shaded gray band at the bottom (`0` to `1 Read / kb`)**, the scale is **linear** so zero-coverage and low-coverage CRs remain clearly visible.
-    - Above the **dashed line at `y = 1`**, the scale is **logarithmic ($\log_{10}$)** (`10`, `100`, `1,000 Reads / kb`) so extreme spikes do not crush the rest of the genome flat.
-- **Vertical rose/pink bands** mark the genomic spans of **pruned outlier bins**, allowing you to see immediately whether a pruned bin was driven by a single massive CR spike or a broader cluster of high-coverage segments.
-- Dot colors use the **same horizontal Cosine Similarity colorbar** located right above Panel C.
-
-#### 2. Technical & Mathematical Specification
-- **CR Segment Coordinates & Density**:
-  - Each CR segment $k$ on contig $c$ (assigned to bin $b$) has start/end coordinates $[s_k, e_k)$, length $\ell_k = e_k - s_k$, and cumulative midpoint coordinate $m_k = \left(\sum_{j < k} \ell_j + \frac{1}{2}\ell_k\right) / 10^6\text{ Mb}$.
-  - Read density is $D_k = \frac{1000 \cdot r_k}{\ell_k}\text{ (read pairs per kb)}$.
-- **Symmetrical Logarithmic Transformation (`symlog`, `linthresh = 1.0`)**:
-  - Standard log axes cannot plot $D_k = 0$, while ad-hoc $\log_{10}(D_k + \epsilon)$ distorts small values depending on $\epsilon$. Using `symlog` with `linthresh = 1.0` maps $y \in [0, 1]$ linearly and $y > 1$ as $1 + \log_{10}(y)$, explicitly demarcated by the shaded gray band and dashed $y = 1$ boundary.
-- **Equal Horizontal Padding**:
-  - Left and right X-axis limits are padded symmetrically by $\pm 2.8\%$ of total CR span (`[-pad_mb, max_mb + pad_mb]`) so boundary dots at `bin_001` and `bin_100` are never clipped by the axis spines.
-
----
-
-### Panel D — Outlier Classification Quadrant
+### Panel C — Outlier Classification Quadrant
 *Subtitle: `Excess read depth vs. temporal concordance (dot size = Gini inequality)`*
 
 #### 1. Plain-English Guide
@@ -165,7 +141,7 @@ The widescreen dashboard uses a **unified `3 × 4` column-aligned grid** so that
   - Why length-proportional clean density instead of unconstrained OLS $\hat{Y}_b = \hat{\beta}_0 + \hat{\beta}_1 X_b$? In failed detections where a single small bin holds almost all reads (e.g., `bin_001`), an unconstrained OLS line has a negative slope ($\hat{\beta}_1 < 0$) that crosses zero and predicts negative expected reads for large bins; similarly, a negative Y-intercept ($\hat{\beta}_0 < 0$) under-predicts expected reads in the smallest bins.
   - Enforcing the physical boundary condition $E(X=0) = 0$, let $\bar{d}_{\mathcal{R}} = \frac{\sum_{j \in \mathcal{R}} Y_j}{\sum_{j \in \mathcal{R}} X_j}$ be the mean read density (read pairs per bp) across retained clean bins $\mathcal{R}$. The length-proportional expected read count for bin $b$ of CR length $X_b$ is:
     $$E_b^{\text{prop}} = \max\!\left(1.0,\; \bar{d}_{\mathcal{R}} \cdot X_b\right) = \max\!\left(1.0,\; Y_{\text{clean, total}} \cdot \frac{X_b}{L_{\text{CR, clean}}}\right)$$
-  - The horizontal coordinate in Panel D is then:
+  - The horizontal coordinate in Panel C is then:
     $$\text{Excess Depth}_b = \log_2 \!\left( \max\!\left(0.125,\, \frac{Y_b + 1}{E_b^{\text{prop}} + 1}\right) \right)$$
 - **516-Week Temporal Cosine Similarity ($\text{CosSim}_b$)**:
   - Let $\mathbf{v}_b = (v_{b,1}, \dots, v_{b,516})$ be the weekly read-pair vector of bin $b$, and $\mathbf{C} = \sum_{j \in \mathcal{R}} \mathbf{v}_j$ be the aggregate weekly read-pair vector across all retained clean bins:
@@ -178,24 +154,24 @@ The widescreen dashboard uses a **unified `3 × 4` column-aligned grid** so that
 
 ---
 
-### Panels E1, E2 & E3 — Read Attrition, Sequence Identity Spectrum & Reference Sequence Funnel
+### Panels D1, D2 & D3 — Read Attrition, Sequence Identity Spectrum & Reference Sequence Funnel
 
 #### 1. Plain-English Guide
-- **Panel E1 (`eDNA Read Attrition` — left funnel)**:
-  - Tracks what happens to all environmental DNA read pairs originally assigned to this species clade by Kraken 2 across **5 sequential quality filters**:
+- **Panel D1 (`eDNA Read Attrition` — left funnel)**:
+  - Tracks what happens to all environmental DNA read pairs originally assigned to this species clade by Kraken 2 across **5 sequential quality filters** (with each horizontal bar's width strictly proportional to the percentage of read pairs retained):
     1. **`1. Raw Kraken Clade Pairs`**: Total read pairs classified to the species clade by Kraken 2 across all 516 weekly samples.
     2. **`2. CR Mapped (MAPQ ≥ 30)`**: Read pairs that align uniquely and with high confidence (`MAPQ ≥ 30`) to the species' Classifiable Regions (`minimap2`).
     3. **`3. Passed ≥ 80% Aligned`**: Read pairs where at least $80\%$ of the sequencing read aligns without large soft-clipped overhangs.
     4. **`4. Passed ≥ 99% Identity`**: Read pairs with at least $99\%$ base-pair identity ($\le 1\%$ mismatches/indels) to the reference genome.
     5. **`5. Clean Validated Bins`**: High-identity read pairs that land inside the retained **clean genomic bins** after outlier pruning.
-- **Panel E2 (`Alignment Identity Spectrum` — top-right bar chart)**:
+- **Panel D2 (`Alignment Identity Spectrum` — top-right bar chart)**:
   - Shows the sequence similarity (`% Identity`, from `<90%` up to `100%`) of reads that aligned to the Classifiable Regions (Stage 3 of the funnel):
     - **Red bars (`<90%` through `98%`, left of the dashed cutoff line)**: Reads rejected because they have $>1\%$ sequence divergence—often caused by cross-mapping from a related sister species (which typically peaks around `94%–98%` identity).
     - **Green bars (`99%` and `100%`, right of the cutoff line)**: Reads passing the $\ge 99\%$ identity threshold in **retained clean bins**.
     - **Amber/orange stacked bars (`99%` and `100%`)**: Reads passing $\ge 99\%$ identity that landed in **pruned outlier bins**.
-- **Panel E3 (`Reference Sequence Funnel` — bottom-right funnel)**:
-  - Shows how much of the reference genome sequence is classifiable and retained:
-    1. **`1. Total Genome Assembly`**: Total base pairs in the reference genome (`Mb`).
+- **Panel D3 (`Reference Sequence Funnel` — bottom-right funnel)**:
+  - Shows how much of the reference genome sequence is classifiable and retained (with each horizontal bar's width strictly proportional to its `% of genome`):
+    1. **`1. Total Genome Assembly`**: Total base pairs in the reference genome (`Mb`, `100.0%`).
     2. **`2. Classifiable Regions (CR)`**: How much of that genome can actually be classified to the species clade by Kraken 2 (`Mb` and `% of genome`). Repeat-rich genomes (such as birds or amphibians) or species with very close database relatives may have a low CR percentage (`10–30%`), whereas unique genomes have a high CR percentage (`70–95%`).
     3. **`3. Clean CRs (Post-Pruning)`**: How much classifiable DNA remains after removing outlier bins (`Mb`, `% of genome`, and `% of CR`).
 
@@ -203,10 +179,34 @@ The widescreen dashboard uses a **unified `3 × 4` column-aligned grid** so that
 - **Alignment Filtering Criteria (`Stage 4` / `filter_sam_to_parquet.py`)**:
   - For every primary (`!0x904`), mapped (`!0x4`) SAM alignment with `MAPQ >= 30`, let $L_{\text{read}}$ be the query length (`len(SEQ)` or CIGAR query length), $S_{\text{clip}}$ be total soft-clipped bases (`S` CIGAR ops), $L_{\text{aln}} = L_{\text{read}} - S_{\text{clip}}$ be the aligned query span, and $\text{NM}$ be the edit distance tag (`NM:i`):
     $$\text{Aligned Fraction} = \frac{L_{\text{aln}}}{L_{\text{read}}} \ge 0.80, \qquad \text{Mismatch Fraction} = \frac{\text{NM}}{L_{\text{aln}}} \le 0.01 \;\;(\ge 99\%\text{ identity})$$
-- **How the `<99%` Identity Histogram in E2 is Computed Without Re-Mapping**:
+- **How the `<99%` Identity Histogram in D2 is Computed Without Re-Mapping**:
   - During the single streaming pass of `minimap2` into `filter_sam_to_parquet.py`, every alignment passing `MAPQ >= 30` and $L_{\text{aln}} / L_{\text{read}} \ge 0.80$ has its exact integer identity bin:
     $$b_{\text{id}} = \max\!\left(89,\, \min\!\left(100,\, \left\lfloor 100 \cdot \left(1 - \frac{\text{NM}}{L_{\text{aln}}}\right) \right\rfloor \right)\right)$$
     tallied in an O(1) in-memory array (`lt99_id_hist_records[89..98]`) and written to `{t_id}.identity_histogram_lt99.tsv`, while the `99%` ($\text{NM} > 0$) and `100%` ($\text{NM} = 0$) passing alignments are stored directly in `{t_id}.passing_alignments.parquet` and split into clean vs. pruned bins.
+
+---
+
+### Panel E — Genome-Wide CR Coverage Map (Manhattan Plot)
+*Subtitle: `Read density across N CR segments (rose bands = pruned bins; gray band = linear 0–1 scale)`*
+
+#### 1. Plain-English Guide
+- **Core question**: *What does read coverage look like across every single Classifiable Region (CR) segment in the genome, rather than just summarized into 100 bins?*
+- Each dot is one individual **CR segment** (typically tens of thousands across a eukaryotic genome), plotted from left to right along cumulative classifiable genome coordinates (`bin_001` $\rightarrow$ `bin_100`, in Megabases).
+- The Y-axis shows **Read Density (`Reads / kb`)**:
+  - Because some CRs have `0` reads while repeat hotspots can have `1,000+ Reads / kb`, the Y-axis uses a **hybrid linear-logarithmic scale**:
+    - Inside the **shaded gray band at the bottom (`0` to `1 Read / kb`)**, the scale is **linear** so zero-coverage and low-coverage CRs remain clearly visible.
+    - Above the **dashed line at `y = 1`**, the scale is **logarithmic ($\log_{10}$)** (`10`, `100`, `1,000 Reads / kb`) so extreme spikes do not crush the rest of the genome flat.
+- **Vertical rose/pink bands** mark the genomic spans of **pruned outlier bins**, allowing you to see immediately whether a pruned bin was driven by a single massive CR spike or a broader cluster of high-coverage segments.
+- Dot colors use the **same horizontal Cosine Similarity colorbar** located right above Panel E.
+
+#### 2. Technical & Mathematical Specification
+- **CR Segment Coordinates & Density**:
+  - Each CR segment $k$ on contig $c$ (assigned to bin $b$) has start/end coordinates $[s_k, e_k)$, length $\ell_k = e_k - s_k$, and cumulative midpoint coordinate $m_k = \left(\sum_{j < k} \ell_j + \frac{1}{2}\ell_k\right) / 10^6\text{ Mb}$.
+  - Read density is $D_k = \frac{1000 \cdot r_k}{\ell_k}\text{ (read pairs per kb)}$.
+- **Symmetrical Logarithmic Transformation (`symlog`, `linthresh = 1.0`)**:
+  - Standard log axes cannot plot $D_k = 0$, while ad-hoc $\log_{10}(D_k + \epsilon)$ distorts small values depending on $\epsilon$. Using `symlog` with `linthresh = 1.0` maps $y \in [0, 1]$ linearly and $y > 1$ as $1 + \log_{10}(y)$, explicitly demarcated by the shaded gray band and dashed $y = 1$ boundary.
+- **Equal Horizontal Padding**:
+  - Left and right X-axis limits are padded symmetrically by $\pm 2.8\%$ of total CR span (`[-pad_mb, max_mb + pad_mb]`) so boundary dots at `bin_001` and `bin_100` are never clipped by the axis spines.
 
 ---
 
@@ -226,7 +226,7 @@ The widescreen dashboard uses a **unified `3 × 4` column-aligned grid** so that
 - **Why Three Complementary Correlation Metrics ($R_{\text{lin}}$, $R_{\log}$, and Spearman $\rho$) Are Reported**:
   1. **Linear Pearson $R$ (`Lin R`)**: Computed on untransformed weekly counts $(x_t, y_t)$. Heavily weighted toward peak bloom weeks (e.g., 1–3 summer weeks with $10^5$–$10^6$ reads).
   2. **Log-Space Pearson $R_{\log}$ (`R_log`)**: Computed on $(\log_{10}(x_t + 1),\, \log_{10}(y_t + 1))$ across all 516 weeks:
-     $$R_{\log} = \text{ corr}\!\left(\log_{10}(x_t + 1),\; \log_{10}(y_t + 1)\right)$$
+     $$R_{\log} = \text{corr}\!\left(\log_{10}(x_t + 1),\; \log_{10}(y_t + 1)\right)$$
      Because Panel F is plotted on $\log_{10}(v+1)$ axes, $R_{\log}$ measures the exact visual linearity across all orders of magnitude ($10^0 \to 10^7$), preventing 2 massive bloom weeks from masking low-abundance off-season discordance.
   3. **Spearman Rank Correlation ($\rho$)**: Non-parametric rank correlation across all 516 weeks.
 - **Proportional Retention Curve on $\log_{10}(v+1)$ Axes**:
@@ -234,12 +234,35 @@ The widescreen dashboard uses a **unified `3 × 4` column-aligned grid** so that
 
 ---
 
-### Panel G — 10-Year Longitudinal eDNA Time Series (2013–2022)
+### Panel G — Bin Temporal Occupancy
+*Subtitle: `Clean median: X% (K/516 wks) | Effective active weeks (N_eff) = ...`*
+
+#### 1. Plain-English Guide
+- **Core question**: *In how many of the 516 weekly samples does each genomic bin appear, and is the species detected often enough for Temporal Cosine Similarity to be meaningful?*
+- Each dot is one of the 100 genomic bins:
+  - **X-axis (`Weekly Sample Occupancy %`)**: Percentage of the 516 weekly samples where that bin has at least 1 mapped read pair (a histogram at the top shows the distribution across all 100 bins, with a dashed vertical line at the clean-bin median).
+  - **Y-axis (`Temporal Concordance / Cosine Similarity`)**: How closely the bin's weekly pattern matches the species' overall time series.
+- **Why this panel is essential**:
+  - **Cosine Similarity can become degenerate in two opposite regimes**:
+    1. **Extreme Episodic / Single-Spike Regime ($N_{\text{eff}} \approx 1\text{–}3\text{ weeks}$)**: When a species (such as the butterfly *Pieris napi* or *Pieris melete*) has $>90\%$ of all its 10-year reads in just `2` or `3` summer bloom weeks, *any* bin that catches reads during those 2 weeks automatically gets $\text{Cosine Sim} \approx 0.99$! Panel G immediately alerts you to this by showing **low sample occupancy (`<2%`)** and a tiny **Effective Active Weeks (`N_eff = 2.3w`)** in the subtitle.
+    2. **Ultra-Sparse / Low-Abundance Regime**: When a species is present at very low read depth across many weeks (e.g., 1–2 reads per week), each individual bin only catches a read in a random handful of weeks (`Poisson dropout`), artificially lowering $\text{Cosine Sim}$ (`0.40–0.75`) even for completely clean bins. Panel G reveals this as a rising curve from low occupancy/lower cosine on the left to higher occupancy/higher cosine on the right.
+
+#### 2. Technical & Mathematical Specification
+- **Bin Sample Occupancy ($\text{Occ}_b$)**:
+  $$\text{Occ}_b = \frac{100}{516} \sum_{t=1}^{516} \mathbb{I}(v_{b,t} \ge 1)$$
+- **Effective Number of Active Weeks ($N_{\text{eff}}$, Inverse Simpson Diversity of the Time Series)**:
+  - Let $p_t = \frac{C_t}{\sum_{u=1}^{516} C_u}$ be the fraction of total clean reads occurring in week $t$. The **Effective Number of Active Weeks** is the inverse Simpson concentration index:
+    $$N_{\text{eff}} = \frac{1}{\sum_{t=1}^{516} p_t^2} = \frac{\left(\sum_{t=1}^{516} C_t\right)^2}{\sum_{t=1}^{516} C_t^2} \in [1,\, 516]$$
+  - If all reads occur in a single week, $N_{\text{eff}} = 1.0\text{w}$; if reads are spread evenly across $K$ weeks, $N_{\text{eff}} = K\text{w}$. Whenever $N_{\text{eff}} \le 3\text{w}$, $\text{CosSim}_b$ has low discriminative power because the 516-dimensional inner product collapses onto 1–3 coordinates.
+
+---
+
+### Panel H — 10-Year Longitudinal eDNA Time Series (2013–2022)
 *Subtitle: `Weekly read pairs across 516 air-filter samples before and after validation`*
 
 #### 1. Plain-English Guide
 - **Core question**: *When did this species appear across the 10-year Ljungbyhed monitoring series (2013–2022), and how did validation clean the signal?*
-- Stacked directly below the Manhattan plot (`Panel C`) with identical width, this panel shows weekly read counts across all **516 consecutive weeks** from 2013 to 2022 (alternating white and light-gray vertical bands mark calendar years):
+- Stacked directly below the Manhattan plot (`Panel E`) with identical width, this panel shows weekly read counts across all **516 consecutive weeks** from 2013 to 2022 (alternating white and light-gray vertical bands mark calendar years):
   - **Gray shaded area (`Raw Kraken Clade Pairs`)**: Unfiltered Kraken 2 clade counts.
   - **Blue line (`All-CR Mapped Pairs`)**: Reads passing `minimap2` alignment ($\text{MAPQ} \ge 30$, $\ge 80\%$ aligned, $\ge 99\%$ identity) to all 100 CR bins before outlier pruning.
   - **Green/red line (`Validated Clean-Bin Pairs`)**: Final validated reads from retained clean bins only.
@@ -250,7 +273,7 @@ The widescreen dashboard uses a **unified `3 × 4` column-aligned grid** so that
 
 ---
 
-### Panel H — 10-Year Seasonal Phenology Profile
+### Panel I — 10-Year Seasonal Phenology Profile
 *Subtitle: `Multi-year average cycle across weeks 1–52 (pre- vs. post-validation concordance r = ...)`*
 
 #### 1. Plain-English Guide
@@ -272,29 +295,6 @@ The widescreen dashboard uses a **unified `3 × 4` column-aligned grid** so that
 
 ---
 
-### Panel I — Bin Temporal Occupancy
-*Subtitle: `Clean median: X% (K/516 wks) | Effective active weeks (N_eff) = ...`*
-
-#### 1. Plain-English Guide
-- **Core question**: *In how many of the 516 weekly samples does each genomic bin appear, and is the species detected often enough for Temporal Cosine Similarity to be meaningful?*
-- Each dot is one of the 100 genomic bins:
-  - **X-axis (`Weekly Sample Occupancy %`)**: Percentage of the 516 weekly samples where that bin has at least 1 mapped read pair (a histogram at the top shows the distribution across all 100 bins, with a dashed vertical line at the clean-bin median).
-  - **Y-axis (`Temporal Concordance / Cosine Similarity`)**: How closely the bin's weekly pattern matches the species' overall time series.
-- **Why this panel is essential**:
-  - **Cosine Similarity can become degenerate in two opposite regimes**:
-    1. **Extreme Episodic / Single-Spike Regime ($N_{\text{eff}} \approx 1\text{–}3\text{ weeks}$)**: When a species (such as the butterfly *Pieris napi* or *Pieris melete*) has $>90\%$ of all its 10-year reads in just `2` or `3` summer bloom weeks, *any* bin that catches reads during those 2 weeks automatically gets $\text{Cosine Sim} \approx 0.99$! Panel I immediately alerts you to this by showing **low sample occupancy (`<2%`)** and a tiny **Effective Active Weeks (`N_eff = 2.3w`)** in the subtitle.
-    2. **Ultra-Sparse / Low-Abundance Regime**: When a species is present at very low read depth across many weeks (e.g., 1–2 reads per week), each individual bin only catches a read in a random handful of weeks (`Poisson dropout`), artificially lowering $\text{Cosine Sim}$ (`0.40–0.75`) even for completely clean bins. Panel I reveals this as a rising curve from low occupancy/lower cosine on the left to higher occupancy/higher cosine on the right.
-
-#### 2. Technical & Mathematical Specification
-- **Bin Sample Occupancy ($\text{Occ}_b$)**:
-  $$\text{Occ}_b = \frac{100}{516} \sum_{t=1}^{516} \mathbb{I}(v_{b,t} \ge 1)$$
-- **Effective Number of Active Weeks ($N_{\text{eff}}$, Inverse Simpson Diversity of the Time Series)**:
-  - Let $p_t = \frac{C_t}{\sum_{u=1}^{516} C_u}$ be the fraction of total clean reads occurring in week $t$. The **Effective Number of Active Weeks** is the inverse Simpson concentration index:
-    $$N_{\text{eff}} = \frac{1}{\sum_{t=1}^{516} p_t^2} = \frac{\left(\sum_{t=1}^{516} C_t\right)^2}{\sum_{t=1}^{516} C_t^2} \in [1,\, 516]$$
-  - If all reads occur in a single week, $N_{\text{eff}} = 1.0\text{w}$; if reads are spread evenly across $K$ weeks, $N_{\text{eff}} = K\text{w}$. Whenever $N_{\text{eff}} \le 3\text{w}$, $\text{CosSim}_b$ has low discriminative power because the 516-dimensional inner product collapses onto 1–3 coordinates.
-
----
-
 ### Panel J — Bin × Week Hierarchical Clustermap
 *Subtitle: `100 CR bins clustered by temporal profile across M active weeks (Ward linkage)`*
 
@@ -306,7 +306,7 @@ The widescreen dashboard uses a **unified `3 × 4` column-aligned grid** so that
   - **What a true biological detection looks like**: Vertical stripes that run **continuously from top to bottom across all 100 rows**, showing that the entire genome appears and disappears in lockstep during the same weeks.
   - **What a cross-mapping artifact looks like**: A horizontal block of rows (marked in **red** in the `Status` strip) that lights up in weeks where the rest of the genome is dark, or stays dark when the rest of the genome is active.
 - **Three Vertical Annotation Strips (between the dendrogram and heatmap, labeled at the bottom)**:
-  1. **`CosSim`**: 516-week Temporal Cosine Similarity (`Viridis`, shared with Panels A & C).
+  1. **`CosSim`**: 516-week Temporal Cosine Similarity (`Viridis`, shared with Panels A & E).
   2. **`Occ%`**: Bin Sample Occupancy across all 516 weeks (`PuBu` blue gradient, with its own **`Occupancy (% of 516 Wks)` colorbar** at the bottom-left of Panel J).
   3. **`Status`**: Whether the bin was **Retained** (green) or **Pruned** (red) by the regression algorithm.
 

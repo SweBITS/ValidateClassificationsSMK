@@ -117,16 +117,16 @@ rule generate_species_10panel_figure:
     """
     WHY:
     Produces the extended 10-Panel Diagnostic Suite (`{t_id}.diagnostic_10panel.{png,pdf}`, `32.0 x 18.2 in`, 300 DPI)
-    for each active species on a unified 3x4 column-aligned grid:
+    for each active species on a unified 3x4 column-aligned grid ordered alphabetically row-by-row:
       - Panel A: Genomic Proportionality Regression (+ top structural strip & horizontal Cosine colorbar)
       - Panel B: Outlier Pruning Trajectory (Pearson R vs. Retained CR %)
-      - Panel C: Genome-Wide CR Coverage Map / Manhattan Plot (symlog y-axis with shaded 0-1 linear band)
-      - Panel D: Outlier Classification Quadrant (Excess Read Depth vs. Temporal Concordance, sized by Gini)
-      - Panel E1, E2, E3: eDNA Read Attrition Funnel, Alignment Identity Spectrum, & Reference Sequence Funnel
+      - Panel C: Outlier Classification Quadrant (Excess Read Depth vs. Temporal Concordance, sized by Gini)
+      - Panel D1, D2, D3: eDNA Read Attrition Funnel, Alignment Identity Spectrum, & Reference Sequence Funnel
+      - Panel E: Genome-Wide CR Coverage Map / Manhattan Plot (symlog y-axis with shaded 0-1 linear band)
       - Panel F: Weekly Signal Retention (Log10(Reads+1) 1:1 Correlation across 516 weeks)
-      - Panel G: 10-Year Longitudinal eDNA Time Series (2013-2022, 516 weeks)
-      - Panel H: 10-Year Seasonal Phenology Profile (Weeks 1-52, 3-week circular moving average)
-      - Panel I: Bin Temporal Occupancy (% of 516 weeks occupied vs. Cosine Similarity + N_eff)
+      - Panel G: Bin Temporal Occupancy (% of 516 weeks occupied vs. Cosine Similarity + N_eff)
+      - Panel H: 10-Year Longitudinal eDNA Time Series (2013-2022, 516 weeks)
+      - Panel I: 10-Year Seasonal Phenology Profile (Weeks 1-52, 3-week circular moving average)
       - Panel J: Bin x Week Hierarchical Clustermap (100 CR bins x active weeks, Ward linkage + 3 strips)
     """
     input:

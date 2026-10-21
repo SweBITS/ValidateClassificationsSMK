@@ -108,31 +108,31 @@ Every target species is tracked from start to finish—failed or excluded specie
 
 > **Full Plain-English & Mathematical Guide**: See [**`DASHBOARD_README.md`**](DASHBOARD_README.md) for a complete panel-by-panel reference containing both a plain-English guide (for biologists and manuscript reviewers) and the full mathematical specification (formulas, normalizations, statistical cutoffs, and methodological rationale).
 
-The widescreen figure (`32.0 × 18.2 in`, 300 DPI) uses a unified `3 × 4` column-aligned grid (`A/C/G` in Col 0, `B/F` in Col 1, `D/I` in Col 2, `H` spanning Cols 1–2, and `E/J` in Col 3) with italic species titles and report-matched colored status badges:
+The widescreen figure (`32.0 × 18.2 in`, 300 DPI) uses a unified `3 × 4` column-aligned grid ordered alphabetically row-by-row from left to right (`A, B, C, D` in Row 0; `E, F, G` in Row 1; `H, I` in Row 2; and `J` spanning Rows 1–2 in Col 3) with italic species titles and report-matched colored status badges:
 
 - **Panel A — Genomic Proportionality Regression (+ Top Structural Strip & Horizontal Cosine Colorbar)**:
   - Regresses mapped eDNA read pairs ($Y$) against Classifiable Region length ($X$, sorted shortest $\rightarrow$ longest contig across 100 bins), with vertical whiskers showing the intra-bin length-weighted coverage interquartile range (`p25–p75`).
   - A slim top marginal strip (`14.5%` height, locked to the exact same X-axis limits) displays the number of distinct contigs per bin (gray bars) and median CR segment length in kb (blue line).
-  - Points are colored by their **516-week Temporal Cosine Similarity** (`Viridis`, `0.0–1.0`), with a shared **horizontal colorbar placed directly between Panel A and Panel C**.
+  - Points are colored by their **516-week Temporal Cosine Similarity** (`Viridis`, `0.0–1.0`), with a shared **horizontal colorbar placed directly between Panel A and Panel E**.
 - **Panel B — Outlier Pruning Trajectory**:
   - Tracks linear correlation (Pearson $R$, blue) and Retained CR sequence % (orange, capped at `100%`) across iterative outlier bin removal steps against the validation thresholds ($R \ge 0.90$, Retained CR $\ge 50\%$).
-- **Panel C — Genome-Wide CR Coverage Map (Manhattan Plot)**:
-  - Plots read density (`Reads / kb`) for every individual CR segment across cumulative CR coordinates (`bin_001` $\rightarrow$ `bin_100`) on a `symlog(linthresh=1.0)` y-axis (shaded slate band for the linear `0 ≤ y ≤ 1` regime; $\log_{10}$ above `y = 1`), with rose vertical bands highlighting pruned bins.
-- **Panel D — Outlier Classification Quadrant (`Dot Size = Gini Inequality`)**:
+- **Panel C — Outlier Classification Quadrant (`Dot Size = Gini Inequality`)**:
   - Plots **Excess Read Depth** ($\log_2[\text{Observed} / \text{Expected}]$, where $\text{Expected}$ is the bin's length-proportional share of clean CR reads $E_b^{\text{prop}} = \bar{d}_{\text{clean}} \cdot L_b$) on X against **Temporal Concordance (Cosine Sim)** on Y to separate **Endogenous Multi-Copy Repeats** (high depth, concordant phenology) from **Foreign Cross-Mapping Artifacts** (high depth, discordant time series).
   - Marker size encodes the **Intra-Bin Length-Weighted Gini Coefficient ($G_b \in [0, 1]$)**, measuring how unevenly reads are concentrated across CRs within each bin (`0.20 = Uniform CRs`, `0.55 = Moderate`, `≥0.85 = CR Hotspot`).
-- **Panel E1, E2 & E3 — eDNA Read Attrition, Alignment Identity Spectrum & Reference Sequence Funnel**:
-  - **E1 (`eDNA Read Attrition`)**: Centered symmetrical trapezoidal funnel tracking read pairs across 5 filter stages (`1. Raw Kraken Clade Pairs` $\rightarrow$ `2. CR Mapped MAPQ ≥ 30` $\rightarrow$ `3. Passed ≥ 80% Aligned` $\rightarrow$ `4. Passed ≥ 99% Identity` $\rightarrow$ `5. Clean Validated Bins`).
-  - **E2 (`Alignment Identity Spectrum`)**: 1%-bin sequence identity distribution (`<90%` through `100%`) for CR-aligned read pairs passing $\ge 80\%$ read length aligned (`<99%` rejected in crimson vs. `99%` and `100%` passing in emerald/amber).
-  - **E3 (`Reference Sequence Funnel`, stacked under E2)**: Centered symmetrical trapezoidal funnel tracking reference sequence retention (`1. Total Genome Assembly` $\rightarrow$ `2. Classifiable Regions (CR)` $\rightarrow$ `3. Clean CRs (Post-Pruning)`).
+- **Panel D1, D2 & D3 — eDNA Read Attrition, Alignment Identity Spectrum & Reference Sequence Funnel**:
+  - **D1 (`eDNA Read Attrition`)**: Centered symmetrical trapezoidal funnel with strictly proportional bar widths tracking read pairs across 5 filter stages (`1. Raw Kraken Clade Pairs` $\rightarrow$ `2. CR Mapped MAPQ ≥ 30` $\rightarrow$ `3. Passed ≥ 80% Aligned` $\rightarrow$ `4. Passed ≥ 99% Identity` $\rightarrow$ `5. Clean Validated Bins`).
+  - **D2 (`Alignment Identity Spectrum`)**: 1%-bin sequence identity distribution (`<90%` through `100%`) for CR-aligned read pairs passing $\ge 80\%$ read length aligned (`<99%` rejected in crimson vs. `99%` and `100%` passing in emerald/amber).
+  - **D3 (`Reference Sequence Funnel`, stacked under D2)**: Centered symmetrical trapezoidal funnel with strictly proportional bar widths tracking reference sequence retention (`1. Total Genome Assembly` $\rightarrow$ `2. Classifiable Regions (CR)` $\rightarrow$ `3. Clean CRs (Post-Pruning)`).
+- **Panel E — Genome-Wide CR Coverage Map (Manhattan Plot)**:
+  - Plots read density (`Reads / kb`) for every individual CR segment across cumulative CR coordinates (`bin_001` $\rightarrow$ `bin_100`) on a `symlog(linthresh=1.0)` y-axis (shaded slate band for the linear `0 ≤ y ≤ 1` regime; $\log_{10}$ above `y = 1`), with rose vertical bands highlighting pruned bins.
 - **Panel F — Weekly Signal Retention ($\log_{10}(\text{Reads}+1)$)**:
   - Compares weekly raw Kraken 2 clade read pairs against post-validation clean-bin read pairs across all 516 weeks, reporting linear Pearson $R$, log-space $R_{\log}$, and Spearman $\rho$.
-- **Panel G — 10-Year Longitudinal eDNA Time Series (2013–2022, 516 Weeks)**:
-  - Stacked directly below the Manhattan plot (`Panel C`) at identical column width, comparing weekly `Raw Kraken Clade Pairs` (gray), `All-CR Mapped Pairs` (blue), and `Validated Clean-Bin Pairs` (status color).
-- **Panel H — 10-Year Seasonal Phenology Profile (Weeks 1–52, 3w Circular Smooth)**:
-  - Spans the combined width of `Panels B + D` (`F + I`), comparing the 10-year pre-validation vs. post-validation seasonal cycle smoothed with a `[0.25, 0.50, 0.25]` circular moving average across the Dec–Jan boundary, with dual Y-axes (`Share of Annual Signal %/week` on left; `Mean Clean Pairs / Week` on right).
-- **Panel I — Bin Temporal Occupancy (`%` of 516 Weeks Occupied)**:
+- **Panel G — Bin Temporal Occupancy (`%` of 516 Weeks Occupied)**:
   - Plots each bin's **Weekly Sample Occupancy (% of 516 weeks with $\ge 1$ read pair)** against its **Temporal Concordance (Cosine Sim)**, paired with a top marginal occupancy histogram, Clean Median Occupancy (`%` and `weeks`), and Effective Active Weeks ($N_{\text{eff}} = 1/\sum p_t^2$).
+- **Panel H — 10-Year Longitudinal eDNA Time Series (2013–2022, 516 Weeks)**:
+  - Stacked directly below the Manhattan plot (`Panel E`) at identical column width, comparing weekly `Raw Kraken Clade Pairs` (gray), `All-CR Mapped Pairs` (blue), and `Validated Clean-Bin Pairs` (status color).
+- **Panel I — 10-Year Seasonal Phenology Profile (Weeks 1–52, 3w Circular Smooth)**:
+  - Spans the combined width of `Panels B + C` (`F + G`), comparing the 10-year pre-validation vs. post-validation seasonal cycle smoothed with a `[0.25, 0.50, 0.25]` circular moving average across the Dec–Jan boundary, with dual Y-axes (`Share of Annual Signal %/week` on left; `Mean Clean Pairs / Week` on right).
 - **Panel J — Bin × Week Hierarchical Clustermap**:
   - Clusters all 100 bins by their $\log_{10}(\text{Reads/kb} + 1)$ temporal profiles across active weeks using Ward's minimum-variance linkage (`method="ward"`, `metric="euclidean"`, `optimal_ordering=True`), with bottom-labeled vertical strips (`CosSim`, `Occ%`, `Status`), a left-aligned panel title matching all other panels, and 2 slim horizontal colorbars (`Occupancy % of 516 Wks` and `Read Density`).
 

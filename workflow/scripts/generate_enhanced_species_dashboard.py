@@ -1,57 +1,61 @@
 #!/usr/bin/env python3
 """
-generate_enhanced_species_dashboard.py — Widescreen 9-Panel Publication Diagnostic Suite
-========================================================================================
+generate_enhanced_species_dashboard.py — Widescreen 10-Panel Publication Diagnostic Suite
+=========================================================================================
 
 WHY THIS SCRIPT EXISTS:
 -----------------------
-Produces a widescreen (29 x 17 in, 300 DPI PNG + vector PDF) 9-panel static diagnostic
-dashboard for each target species, designed for widescreen monitors and manuscript figures:
+Produces a widescreen (32.0 x 18.2 in, 300 DPI PNG + vector PDF) 10-panel static diagnostic
+dashboard for each target species, ordered alphabetically row-by-row from left to right:
 
-  - **Row 1 (Genomic Bin Regression, Pruning Mechanics, Outlier Quadrant & Attrition)**:
-    * **Panel A (Bin CR Length vs. Mapped Reads + Slim Contig/CR-Length Band)**:
-      - Slim top marginal strip (14% height) locked to the exact same X-axis limits as the
-        main scatter plot (with the colorbar in a dedicated side axis so bars and dots align
-        pixel-for-pixel).
+  - **Top Row (Row 0 — Panels A, B, C, D1/D2/D3)**:
+    * **Panel A (Genomic Proportionality Regression + Top Contig/CR-Length Strip)**:
+      - Slim top marginal strip (14.5% height) locked to the exact same X-axis limits as the
+        main scatter plot.
       - Vertical whiskers on each bin dot show the **length-weighted intra-bin CR coverage
         interquartile range (`p25`–`p75`)** extrapolated to bin width $W_b$.
       - Dots (`●` retained, `▲` pruned) are colored by **516-week Temporal Cosine Similarity**
-        (`0.0` to `1.0`, Viridis) against the leave-one-out clean-genome consensus vector.
-    * **Panel B (Recursive Outlier Pruning Trajectory)**:
+        (`0.0` to `1.0`, Viridis) against the clean-genome consensus vector (shared horizontal
+        colorbar between Panels A & E).
+    * **Panel B (Outlier Pruning Trajectory)**:
       - Dual-axis trajectory of Pearson $R$ and Retained CR Sequence % across pruning steps.
-    * **Panel D (Outlier Diagnostic Quadrant: Excess Depth vs. Temporal Cosine Similarity)**:
-      - Plots $\\log_2(\\text{Observed} / \\text{Expected Clean OLS Reads})$ vs. 516-week
-        Temporal Cosine Similarity, with marker area scaled by the **Length-Adjusted Top-1 CR
-        Concentration Score** ($\\Delta f_{\\max, b} = \\max_{c \\in b}(\\text{Reads}_c/\\text{Reads}_b - \\text{Length}_c/W_b)$)
-        and an explicit 3-size reference legend (`5%`, `25%`, `≥50%`).
-    * **Panel E1 (True Symmetrical Read Attrition Funnel)** & **Panel E2 (`[90%, 100%]` Alignment Identity Histogram)**:
-      - E1 renders a centered trapezoidal funnel across the 5 validation stages.
-      - E2 renders the 1%-resolution sequence identity histogram (`<90%`, `90%..98%` rejected
+    * **Panel C (Outlier Classification Quadrant: Excess Depth vs. Temporal Concordance)**:
+      - Plots $\\log_2(\\text{Observed} / \\text{Length-Proportional Clean Expected Reads})$ vs.
+        516-week Temporal Cosine Similarity, with marker area scaled by the **Intra-Bin
+        Length-Weighted Gini Coefficient** ($G_b \\in [0, 1]$).
+    * **Panels D1, D2 & D3 (eDNA Read Attrition, Alignment Identity Spectrum & Reference Sequence Funnel)**:
+      - D1 renders a strictly proportional symmetrical trapezoidal funnel across the 5 validation stages.
+      - D2 renders the 1%-resolution sequence identity histogram (`<90%`, `90%..98%` rejected
         vs. `99%` and `100%` passing, split by Retained vs. Pruned bins) for reads passing
         `MAPQ ≥ 30` and `≥ 80%` aligned read length.
+      - D3 renders a strictly proportional 3-stage reference sequence funnel (`Total Genome Assembly`
+        $\\rightarrow$ `Classifiable Regions (CR)` $\\rightarrow$ `Clean CRs (Post-Pruning)`).
 
-  - **Row 2 & Row 3 Left/Center (Wide Stacked Genomic & Temporal Panels + Log 1:1 + Simplified Phenology)**:
-    * **Panel C (Wide Genome-Wide CR Manhattan Plot, `bin_001` → `bin_100`)**:
+  - **Second Row (Row 1 — Panels E, F, G)**:
+    * **Panel E (Genome-Wide CR Coverage Map / Manhattan Plot, `bin_001` → `bin_100`)**:
       - Every CR segment across the assembly in FASTA length order (`shortest → longest`),
-        plotting `Reads / kb` on a `symlog` scale (`linear 0–1, log10 > 1`, equivalent to
-        $\\log_{10}(\\text{Reads/kb} + 1)$) and colored by **516-week Temporal Cosine Similarity**
-        (computed for all CRs with $\\ge 1$ read pair).
-    * **Panel G (Wide 10-Year / 516-Week Longitudinal Time Series, stacked below Panel C)**:
-      - Compares weekly Raw Kraken Clade Pairs, All-CR Mapped Pairs, and Validated Clean-Bin Pairs.
-    * **Panel F (Standalone 1:1 Weekly Sample Correlation on `log10(Reads + 1)` Scale)**:
-      - Reveals all 516 weekly samples across 6 orders of magnitude alongside the `1:1` line,
-        proportionality curve ($Y = \\beta X$), linear $R$, log-scale $R_{\\log}$, and Spearman $\\rho$.
-    * **Panel H (Simplified 10-Year Seasonal Phenology, Weeks 1–52, 3w Circular Smooth)**:
-      - Compares only the 3-week circular-smoothed (`[0.25, 0.50, 0.25]` wrapping Week 52 $\\leftrightarrow$ Week 1)
-        Pre-Validation vs. Post-Validation Clean seasonal curves, with a dual Y-axis showing
-        both **Share of Annual Signal (`% / week`)** (left) and **Mean Weekly Clean Reads (`pairs / week`)** (right).
+        plotting `Reads / kb` on a `symlog` scale (`linear 0–1, log10 > 1`) and colored by
+        **516-week Temporal Cosine Similarity**.
+    * **Panel F (Weekly Signal Retention on `log10(Reads + 1)` Scale)**:
+      - Reveals all 516 weekly samples across orders of magnitude alongside the `1:1` line,
+        proportionality curve ($Y = c\\cdot X$), linear $R$, log-scale $R_{\\log}$, and Spearman $\\rho$.
+    * **Panel G (Bin Temporal Occupancy)**:
+      - Plots each bin's Weekly Sample Occupancy (`% of 516 weeks with ≥1 read pair`) vs.
+        Temporal Concordance (Cosine Sim), paired with a top marginal occupancy histogram,
+        Clean Median Occupancy, and Effective Active Weeks ($N_{\\text{eff}} = 1/\\sum p_t^2$).
 
-  - **Row 2 & Row 3 Right (`Panel I`: Hierarchical Clustering Heatmap of CR Bins Over Time)**:
-    * Clusters all 100 CR bins (`bin_001..bin_100`) by their temporal profiles across active
-      monitoring weeks using hierarchical linkage (`scipy.cluster.hierarchy`), displaying:
-      1. Left dendrogram of the 100 bins,
-      2. Two annotation columns (`1. Cosine Similarity` and `2. Pruned Status`), and
-      3. The `100 Bins × Active Weeks` heatmap of $\\log_{10}(\\text{Reads / kb} + 1)$.
+  - **Bottom Row (Row 2 — Panels H, I) & Right Double-Height Column (Rows 1–2 — Panel J)**:
+    * **Panel H (10-Year Longitudinal eDNA Time Series, 2013–2022, stacked below Panel E)**:
+      - Compares weekly Raw Kraken Clade Pairs, All-CR Mapped Pairs, and Validated Clean-Bin Pairs.
+    * **Panel I (10-Year Seasonal Phenology Profile, Weeks 1–52, 3w Circular Smooth, spanning Cols 1–2)**:
+      - Compares the 3-week circular-smoothed (`[0.25, 0.50, 0.25]` wrapping Week 52 $\\leftrightarrow$ Week 1)
+        Pre-Validation vs. Post-Validation Clean seasonal curves, with dual Y-axes showing
+        **Share of Annual Signal (`% / week`)** (left) and **Mean Clean Pairs / Week** (right).
+    * **Panel J (Bin × Week Hierarchical Clustermap, spanning Rows 1–2, Col 3)**:
+      - Clusters all 100 CR bins (`bin_001..bin_100`) by their temporal profiles across active
+        monitoring weeks using Ward linkage (`scipy.cluster.hierarchy`), displaying the left
+        dendrogram, 3 annotation strips (`CosSim`, `Occ%`, `Status`), and the `100 Bins × Active Weeks`
+        heatmap of $\\log_{10}(\\text{Reads / kb} + 1)$.
 """
 
 import argparse
@@ -689,12 +693,12 @@ def render_10panel_figure(
 ) -> None:
     """
     Render the 10-panel diagnostic dashboard (`{t_id}.diagnostic_10panel.{png,pdf}`, 32.0 x 18.2 in, 300 DPI).
-    Uses a unified 3x4 GridSpec so that:
-      - Panel A is the exact same width as Panel C and Panel G (Col 0)
+    Uses a unified 3x4 GridSpec ordered alphabetically row-by-row from left to right:
+      - Panel A is the exact same width as Panel E and Panel H (Col 0)
       - Panel B is the exact same width as Panel F (Col 1)
-      - Panel D is the exact same width as Panel I (Col 2)
-      - Panel H spans Col 1 + Col 2 (Row 2, Cols 1..2)
-      - Panel E and Panel J share Col 3 (Row 0 vs. Rows 1..2)
+      - Panel C is the exact same width as Panel G (Col 2)
+      - Panel I spans Col 1 + Col 2 (Row 2, Cols 1..2)
+      - Panel D (`D1, D2, D3`) and Panel J share Col 3 (Row 0 vs. Rows 1..2)
     """
     taxid = data["taxid"]
     metrics = data["metrics"]
@@ -731,10 +735,10 @@ def render_10panel_figure(
     fig = plt.figure(figsize=(32.0, 18.2), dpi=300, facecolor="white")
 
     # Unified 3x4 Master GridSpec guarantees exact column width alignment across all 3 rows:
-    #   Col 0 (1.54): A (Row 0), C (Row 1), G (Row 2)
+    #   Col 0 (1.54): A (Row 0), E (Row 1), H (Row 2)
     #   Col 1 (0.78): B (Row 0), F (Row 1)
-    #   Col 2 (0.84): D (Row 0), I (Row 1); H spans Cols 1..2 on Row 2
-    #   Col 3 (1.34): E (Row 0), J (Rows 1..2)
+    #   Col 2 (0.84): C (Row 0), G (Row 1); I spans Cols 1..2 on Row 2
+    #   Col 3 (1.34): D (D1/D2/D3, Row 0), J (Rows 1..2)
     master_gs = gridspec.GridSpec(
         3, 4,
         figure=fig,
@@ -842,7 +846,7 @@ def render_10panel_figure(
     norm_cos = mcolors.Normalize(vmin=0.0, vmax=1.0)
 
     # ======================================================================== #
-    # PANEL A: Genomic Proportionality Regression (Row 0, Col 0 — Same Width as C & G)
+    # PANEL A: Genomic Proportionality Regression (Row 0, Col 0 — Same Width as E & H)
     # ======================================================================== #
     gs_a = gridspec.GridSpecFromSubplotSpec(
         3, 1,
@@ -944,10 +948,10 @@ def render_10panel_figure(
                     fontsize=7.3, fontweight="bold", color="#be123c", zorder=6
                 )
 
-        # Horizontal Colorbar positioned cleanly in the space between Panel A and Panel C
+        # Horizontal Colorbar positioned cleanly in the space between Panel A and Panel E
         ax_a_cbar = ax_a.inset_axes([0.12, -0.245, 0.76, 0.040])
         cbar_a = fig.colorbar(sc_a, cax=ax_a_cbar, orientation="horizontal")
-        cbar_a.set_label("516-Week Temporal Concordance (Cosine Similarity — Shared by Panels A & C)", fontsize=8.0, fontweight="bold", color="#1e293b", labelpad=1.8)
+        cbar_a.set_label("516-Week Temporal Concordance (Cosine Similarity — Shared by Panels A & E)", fontsize=8.0, fontweight="bold", color="#1e293b", labelpad=1.8)
         cbar_a.ax.tick_params(labelsize=7.0, pad=1)
 
     # Lock identical X-limits across ax_a, ax_a_top, and ax_a_top_r so bars & dots align pixel-for-pixel
@@ -1017,7 +1021,7 @@ def render_10panel_figure(
     ax_b.legend(lines_b, [l.get_label() for l in lines_b], loc="lower left", frameon=True, facecolor="white", framealpha=0.88, fontsize=7.4)
 
     # ======================================================================== #
-    # PANEL D: Outlier Classification Quadrant (Row 0, Col 2 — Same Width as Panel I)
+    # PANEL C: Outlier Classification Quadrant (Row 0, Col 2 — Same Width as Panel G)
     # ======================================================================== #
     ax_d = fig.add_subplot(master_gs[0, 2])
     ax_d.grid(True, alpha=0.7, zorder=0)
@@ -1081,7 +1085,7 @@ def render_10panel_figure(
     ax_d.set_ylim(-0.04, 1.15)
     set_panel_header(
         ax_d,
-        "D. Outlier Classification Quadrant",
+        "C. Outlier Classification Quadrant",
         "Excess read depth vs. temporal concordance (dot size = Gini inequality)",
     )
     ax_d.set_xlabel("Excess Read Depth [log₂(Observed / Expected)]", fontsize=9.0, color="#1e293b")
@@ -1089,10 +1093,10 @@ def render_10panel_figure(
     ax_d.legend(handles=legend_handles_d, loc="lower left", frameon=True, facecolor="white", framealpha=0.88, fontsize=6.9)
 
     # ======================================================================== #
-    # PANEL E1, E2 & E3 (Row 0, Col 3 — Same Width as Panel J):
-    #   - Left (E1): eDNA Read Attrition Funnel (5 stages)
-    #   - Top-Right (E2, ~half height): Alignment Identity Spectrum ([90–100%])
-    #   - Bottom-Right (E3, ~half height, under E2): Reference Sequence Funnel
+    # PANEL D1, D2 & D3 (Row 0, Col 3 — Same Width as Panel J):
+    #   - Left (D1): eDNA Read Attrition Funnel (5 stages)
+    #   - Top-Right (D2, ~half height): Alignment Identity Spectrum ([90–100%])
+    #   - Bottom-Right (D3, ~half height, under D2): Reference Sequence Funnel
     # ======================================================================== #
     gs_e = gridspec.GridSpecFromSubplotSpec(
         1, 2, subplot_spec=master_gs[0, 3], width_ratios=[0.94, 1.06], wspace=0.20
@@ -1160,11 +1164,11 @@ def render_10panel_figure(
     ax_e1.axis("off")
     set_panel_header(
         ax_e1,
-        "E1. eDNA Read Attrition",
+        "D1. eDNA Read Attrition",
         "Read pairs retained per filter stage",
     )
 
-    # E2: [90%, 100%] Sequence Identity Histogram for CR Reads (cut to ~half height)
+    # D2: [90%, 100%] Sequence Identity Histogram for CR Reads (cut to ~half height)
     ax_e2.grid(True, axis="y", alpha=0.6, zorder=0)
     lt99_map: Dict[int, float] = funnel["lt99_hist_pairs"]
     x_bins_e2 = list(range(89, 101))  # 89 (<90%), 90..98, 99, 100
@@ -1197,14 +1201,14 @@ def render_10panel_figure(
     ax_e2.set_ylabel("Read Pairs", fontsize=8.0, color="#1e293b")
     set_panel_header(
         ax_e2,
-        "E2. Alignment Identity Spectrum",
+        "D2. Alignment Identity Spectrum",
         "Read pairs by % identity (≥99% cutoff)",
         title_size=11.2,
         sub_size=8.3,
     )
     ax_e2.legend(loc="upper left", frameon=True, facecolor="white", framealpha=0.86, fontsize=6.2, borderpad=0.25, labelspacing=0.2)
 
-    # E3: Reference Sequence Funnel (Total Assembly Size -> Total CR Size -> Total CR Size After Pruning)
+    # D3: Reference Sequence Funnel (Total Assembly Size -> Total CR Size -> Total CR Size After Pruning)
     asm_counts = np.array([float(total_asm_bp), float(total_cr_bp), float(retained_cr_bp)], dtype=np.float64)
     max_asm = max(1.0, float(asm_counts[0]))
     widths_e3 = np.maximum(0.008, 0.96 * np.clip(asm_counts / max_asm, 0.0, 1.0))
@@ -1268,7 +1272,7 @@ def render_10panel_figure(
     ax_e3.axis("off")
     set_panel_header(
         ax_e3,
-        "E3. Reference Sequence Funnel",
+        "D3. Reference Sequence Funnel",
         "Assembly → CR → clean CR sequence",
         title_pts=14.5,
         sub_pts=2.5,
@@ -1277,7 +1281,7 @@ def render_10panel_figure(
     )
 
     # ======================================================================== #
-    # PANEL C: Genome-Wide CR Coverage Map / Manhattan Plot (Row 1, Col 0 — Same Width as A & G)
+    # PANEL E: Genome-Wide CR Coverage Map / Manhattan Plot (Row 1, Col 0 — Same Width as A & H)
     # ======================================================================== #
     ax_c = fig.add_subplot(master_gs[1, 0])
     ax_c.grid(True, alpha=0.6, zorder=0)
@@ -1335,14 +1339,14 @@ def render_10panel_figure(
 
     set_panel_header(
         ax_c,
-        "C. Genome-Wide CR Coverage Map (Manhattan Plot)",
+        "E. Genome-Wide CR Coverage Map (Manhattan Plot)",
         f"Read density across {cr_full.height:,} CR segments (rose bands = pruned bins; gray band = linear 0–1 scale)",
     )
     ax_c.set_xlabel("Cumulative Classifiable Region Coordinate (Mb, bin_001 → bin_100)", fontsize=9.0, color="#1e293b")
     ax_c.set_ylabel("Read Density (Reads / kb)", fontsize=9.2, color="#1e293b")
 
     # ======================================================================== #
-    # PANEL G: 10-Year Longitudinal eDNA Time Series (Row 2, Col 0 — Same Width as A & C)
+    # PANEL H: 10-Year Longitudinal eDNA Time Series (Row 2, Col 0 — Same Width as A & E)
     # ======================================================================== #
     ax_g = fig.add_subplot(master_gs[2, 0])
     ax_g.grid(True, alpha=0.6, zorder=0)
@@ -1375,7 +1379,7 @@ def render_10panel_figure(
 
     set_panel_header(
         ax_g,
-        "G. 10-Year Longitudinal eDNA Time Series (2013–2022)",
+        "H. 10-Year Longitudinal eDNA Time Series (2013–2022)",
         "Weekly read pairs across 516 air-filter samples before and after validation",
     )
     ax_g.set_xlabel("Monitoring Year (Weekly Air-Filter Samples, Ljungbyhed)", fontsize=9.0, color="#1e293b")
@@ -1432,7 +1436,7 @@ def render_10panel_figure(
     ax_f.legend(loc="upper left", frameon=True, facecolor="white", framealpha=0.88, fontsize=6.8)
 
     # ======================================================================== #
-    # PANEL I: Bin Temporal Occupancy (Row 1, Col 2 — Same Width as Panel D)
+    # PANEL G: Bin Temporal Occupancy (Row 1, Col 2 — Same Width as Panel C)
     # ======================================================================== #
     gs_i = gridspec.GridSpecFromSubplotSpec(
         2, 1,
@@ -1464,7 +1468,7 @@ def render_10panel_figure(
     ax_i_top.tick_params(axis="y", labelsize=6.8)
     set_panel_header(
         ax_i_top,
-        "I. Bin Temporal Occupancy",
+        "G. Bin Temporal Occupancy",
         f"Clean median: {med_occ_ret:.1f}% ({med_wks_ret}/516 wks) | Effective active weeks (N_eff) = {n_eff_weeks:.1f}w",
     )
 
@@ -1489,7 +1493,7 @@ def render_10panel_figure(
     ax_i.legend(loc="lower right", frameon=True, facecolor="white", framealpha=0.88, fontsize=6.8)
 
     # ======================================================================== #
-    # PANEL H: 10-Year Seasonal Phenology Profile (Row 2, Cols 1..2 — Spans B+D / F+I)
+    # PANEL I: 10-Year Seasonal Phenology Profile (Row 2, Cols 1..2 — Spans B+C / F+G)
     # ======================================================================== #
     ax_h = fig.add_subplot(master_gs[2, 1:3])
     ax_h.grid(True, alpha=0.65, zorder=0)
@@ -1533,7 +1537,7 @@ def render_10panel_figure(
     ax_h.set_xticklabels(month_names, fontsize=8.4)
     set_panel_header(
         ax_h,
-        "H. 10-Year Seasonal Phenology Profile",
+        "I. 10-Year Seasonal Phenology Profile",
         f"Multi-year average cycle across weeks 1–52 (pre- vs. post-validation concordance r = {pheno['r_pheno']:.3f})",
     )
     ax_h.set_xlabel("Calendar Month (Weeks 1–52, 3-Week Circular Moving Average Across Dec–Jan)", fontsize=9.0, color="#1e293b")
@@ -1541,7 +1545,7 @@ def render_10panel_figure(
     ax_h.legend(loc="upper left", frameon=True, facecolor="white", framealpha=0.88, fontsize=7.5)
 
     # ======================================================================== #
-    # PANEL J: Bin x Week Hierarchical Clustermap (Rows 1..2, Col 3 — Same Width as Panel E)
+    # PANEL J: Bin x Week Hierarchical Clustermap (Rows 1..2, Col 3 — Same Width as Panel D)
     #          with Strip Labels at Bottom so Title is Left-Adjusted Like All Other Panels!
     # ======================================================================== #
     gs_j_outer = gridspec.GridSpecFromSubplotSpec(
