@@ -154,6 +154,18 @@ def main() -> None:
 
     logger = setup_logger("generate_master_report", args.log)
 
+    # Restore any hardlinked pooled species FASTQs if an older Snakemake coordinator unlinked them as `temp`
+    fastq_dir = Path("results/01_inputs/fastq")
+    if fastq_dir.is_dir():
+        for keep_fq in fastq_dir.glob(".retained_taxID-*_R*.fq.gz"):
+            target_fq = fastq_dir / keep_fq.name.replace(".retained_", "", 1)
+            try:
+                if not target_fq.exists():
+                    target_fq.hardlink_to(keep_fq)
+                keep_fq.unlink(missing_ok=True)
+            except Exception:
+                pass
+
     # 1. Load workflow run info & configuration
     wf_info = json.loads(Path(args.wf_info).read_text(encoding="utf-8")) if Path(args.wf_info).is_file() else {}
     wf_info["end_timestamp"] = datetime.datetime.now().astimezone().isoformat()

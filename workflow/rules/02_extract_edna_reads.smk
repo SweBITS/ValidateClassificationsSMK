@@ -61,8 +61,8 @@ rule merge_species_fastq:
         active_species = "results/00_ledger/active_species.tsv",
         sample_dones = expand("results/01_inputs/sample_chunks/{sample}/{sample}.extract.done", sample=SAMPLES)
     output:
-        r1 = temp("results/01_inputs/fastq/taxID-{t_id}_R1.fq.gz"),
-        r2 = temp("results/01_inputs/fastq/taxID-{t_id}_R2.fq.gz")
+        r1 = "results/01_inputs/fastq/taxID-{t_id}_R1.fq.gz",
+        r2 = "results/01_inputs/fastq/taxID-{t_id}_R2.fq.gz"
     params:
         chunks_root = "results/01_inputs/sample_chunks"
     log:

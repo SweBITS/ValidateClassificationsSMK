@@ -191,6 +191,18 @@ def main() -> None:
 
     logger = setup_logger(f"filter_sam_{args.taxid}", args.log)
 
+    # Preserve hardlinks of pooled species FASTQs so even if an in-flight Snakemake coordinator
+    # had `temp(...)` in memory, the merged species FASTQs survive for future mapping parameter runs.
+    fastq_dir = Path("results/01_inputs/fastq")
+    for pair in ("1", "2"):
+        src_fq = fastq_dir / f"taxID-{args.taxid}_R{pair}.fq.gz"
+        keep_fq = fastq_dir / f".retained_taxID-{args.taxid}_R{pair}.fq.gz"
+        if src_fq.is_file() and not keep_fq.exists():
+            try:
+                keep_fq.hardlink_to(src_fq)
+            except Exception:
+                pass
+
     total_sam_records = 0
     unmapped_or_nonprimary = 0
     primary_mapped_records = 0
