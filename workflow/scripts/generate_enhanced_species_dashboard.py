@@ -235,11 +235,24 @@ def compute_species_enhanced_data(
     slug: str,
     project_root: Path,
     logger: Any,
+    map_tag: str = "mapq30_aln80_id99",
+    min_mapq_arg: Any = None,
+    min_align_frac_arg: Any = None,
+    max_mismatch_frac_arg: Any = None,
 ) -> Dict[str, Any]:
     """Compute all bin-level, CR-level, funnel/identity, phenology, and clustermap metrics."""
-    val_dir = project_root / "results" / "04_validation" / f"{taxid}_{slug}"
+    val_dir = project_root / "results" / "04_validation" / map_tag / f"{taxid}_{slug}" if map_tag else project_root / "results" / "04_validation" / f"{taxid}_{slug}"
+    if not val_dir.is_dir():
+        val_dir_fallback = project_root / "results" / "04_validation" / f"{taxid}_{slug}"
+        if val_dir_fallback.is_dir():
+            val_dir = val_dir_fallback
+
     cr_dir = project_root / "results" / "02_classifiable_regions" / str(taxid)
-    map_dir = project_root / "results" / "03_mapping" / str(taxid)
+    map_dir = project_root / "results" / "03_mapping" / map_tag / str(taxid) if map_tag else project_root / "results" / "03_mapping" / str(taxid)
+    if not map_dir.is_dir():
+        map_dir_fallback = project_root / "results" / "03_mapping" / str(taxid)
+        if map_dir_fallback.is_dir():
+            map_dir = map_dir_fallback
 
     metrics_json_path = val_dir / f"{taxid}.validation_metrics.json"
     bin_reg_path = val_dir / f"{taxid}.bin_regression_data.tsv"
@@ -545,7 +558,15 @@ def compute_species_enhanced_data(
             w.writeheader()
             w.writerows(enhanced_bins)
 
-    # 7. Read Attrition Funnel & [90%, 100%] Identity Histogram (Panel E1 & E2)
+    # 7. Read Attrition Funnel & [90%, 100%] Identity Histogram (Panel D1 & D2)
+    eff_min_mapq = int(min_mapq_arg if min_mapq_arg is not None else map_stats.get("min_mapq", 30))
+    eff_min_align_frac = float(min_align_frac_arg if min_align_frac_arg is not None else map_stats.get("min_align_frac", 0.80))
+    eff_max_mm_frac = float(max_mismatch_frac_arg if max_mismatch_frac_arg is not None else map_stats.get("max_mismatch_frac", 0.01))
+    eff_align_pct_str = f"{100.0 * eff_min_align_frac:g}"
+    eff_id_pct_val = 100.0 * (1.0 - eff_max_mm_frac)
+    eff_id_pct_str = f"{eff_id_pct_val:g}"
+    cutoff_id_bin = max(89, min(100, int(round(eff_id_pct_val))))
+
     raw_pairs = int(metrics.get("raw_eDNA_reads", 0))
     total_sam = int(map_stats.get("total_sam_records", raw_pairs * 2))
     prim_mapped_mates = int(map_stats.get("primary_mapped_records", 0))
@@ -563,23 +584,31 @@ def compute_species_enhanced_data(
     rejected_lt99_pairs = failed_mm_mates / 2.0
 
     retained_bin_set = {r["bin_id"] for r in bin_rows if r["is_retained"].lower() == "true"}
-    id_split_df = (
+    pass_hist_df = (
         aln_lazy.with_columns([
             pl.col("bin_id").is_in(list(retained_bin_set)).alias("is_ret"),
-            (pl.col("nm") == 0).alias("is_exact"),
+            (100.0 * (1.0 - pl.col("mismatch_frac")) + 1e-9).floor().cast(pl.Int32).clip(89, 100).alias("id_bin"),
         ])
-        .group_by(["is_ret", "is_exact"])
+        .group_by(["is_ret", "id_bin"])
         .agg((pl.len() / 2.0).alias("pair_equiv"))
         .collect()
     )
-    id_split = {(bool(r["is_ret"]), bool(r["is_exact"])): float(r["pair_equiv"]) for r in id_split_df.iter_rows(named=True)}
+    ret_pass_hist = {b: 0.0 for b in range(89, 101)}
+    prn_pass_hist = {b: 0.0 for b in range(89, 101)}
+    for r in pass_hist_df.iter_rows(named=True):
+        b_k = int(r["id_bin"])
+        if b_k in ret_pass_hist:
+            if bool(r["is_ret"]):
+                ret_pass_hist[b_k] = float(r["pair_equiv"])
+            else:
+                prn_pass_hist[b_k] = float(r["pair_equiv"])
 
-    # Load <99% identity distribution [89 (<90%), 90, 91, ..., 98]:
+    # Load rejected identity distribution [89 (<90%), 90, 91, ..., 100]:
     # Prefer exact 516-week columns from mapping_stats.tsv if present; otherwise load sidecar TSV
-    lt99_bins = {b: 0.0 for b in range(89, 99)}
+    lt99_bins = {b: 0.0 for b in range(89, 101)}
     if "id_lt90_pairs" in map_stats:
         lt99_bins[89] = float(map_stats.get("id_lt90_pairs", 0))
-        for b in range(90, 99):
+        for b in range(90, 101):
             lt99_bins[b] = float(map_stats.get(f"id_{b}_pairs", 0))
     elif lt99_hist_path.exists():
         with open(lt99_hist_path, "r", encoding="utf-8") as fh:
@@ -595,9 +624,9 @@ def compute_species_enhanced_data(
     funnel_data = {
         "stage_labels": [
             "1. Raw Kraken Clade Pairs",
-            "2. CR Mapped (MAPQ ≥ 30)",
-            "3. Passed ≥ 80% Aligned",
-            "4. Passed ≥ 99% Identity",
+            f"2. CR Mapped (MAPQ ≥ {eff_min_mapq})",
+            f"3. Passed ≥ {eff_align_pct_str}% Aligned",
+            f"4. Passed ≥ {eff_id_pct_str}% Identity",
             "5. Clean Validated Bins",
         ],
         "stage_counts": [
@@ -607,12 +636,16 @@ def compute_species_enhanced_data(
             stage4_both_mates_pairs,
             stage5_clean_pairs,
         ],
+        "id_pct_str": eff_id_pct_str,
+        "cutoff_id_bin": cutoff_id_bin,
         "rejected_lt99_pairs": rejected_lt99_pairs,
         "lt99_hist_pairs": lt99_bins,
-        "ret_exact_100_pairs": id_split.get((True, True), 0.0),
-        "ret_1mm_99_pairs": id_split.get((True, False), 0.0),
-        "pruned_exact_100_pairs": id_split.get((False, True), 0.0),
-        "pruned_1mm_99_pairs": id_split.get((False, False), 0.0),
+        "ret_pass_hist": ret_pass_hist,
+        "prn_pass_hist": prn_pass_hist,
+        "ret_exact_100_pairs": ret_pass_hist.get(100, 0.0),
+        "ret_1mm_99_pairs": ret_pass_hist.get(99, 0.0),
+        "pruned_exact_100_pairs": prn_pass_hist.get(100, 0.0),
+        "pruned_1mm_99_pairs": prn_pass_hist.get(99, 0.0),
     }
 
     # 8. Simplified 10-Year Seasonal Phenology (Weeks 1..52, Circular 3-Week Smoothing)
@@ -1171,27 +1204,34 @@ def render_10panel_figure(
     # D2: [90%, 100%] Sequence Identity Histogram for CR Reads (cut to ~half height)
     ax_e2.grid(True, axis="y", alpha=0.6, zorder=0)
     lt99_map: Dict[int, float] = funnel["lt99_hist_pairs"]
+    ret_hist_map: Dict[int, float] = funnel.get("ret_pass_hist", {})
+    prn_hist_map: Dict[int, float] = funnel.get("prn_pass_hist", {})
+    id_pct_str = funnel.get("id_pct_str", "99")
+    cutoff_id_bin = int(funnel.get("cutoff_id_bin", 99))
+    cutoff_x_pos = (cutoff_id_bin - 89) - 0.5
+
     x_bins_e2 = list(range(89, 101))  # 89 (<90%), 90..98, 99, 100
     x_labels_e2 = ["<90", "90", "91", "92", "93", "94", "95", "96", "97", "98", "99", "100"]
 
-    lt99_vals = [lt99_map.get(b, 0.0) for b in range(89, 99)] + [0.0, 0.0]
-    ret_pass_vals = [0.0] * 10 + [funnel["ret_1mm_99_pairs"], funnel["ret_exact_100_pairs"]]
-    prn_pass_vals = [0.0] * 10 + [funnel["pruned_1mm_99_pairs"], funnel["pruned_exact_100_pairs"]]
+    lt99_vals = [float(lt99_map.get(b, 0.0)) for b in x_bins_e2]
+    ret_pass_vals = [float(ret_hist_map.get(b, 0.0)) for b in x_bins_e2]
+    prn_pass_vals = [float(prn_hist_map.get(b, 0.0)) for b in x_bins_e2]
+    pass_tot_vals = [r_v + p_v for r_v, p_v in zip(ret_pass_vals, prn_pass_vals)]
 
     idx_e2 = np.arange(len(x_bins_e2))
     ax_e2.bar(
-        idx_e2[:10], lt99_vals[:10], color="#e11d48", width=0.74, alpha=0.88,
-        label=f"Rejected <99% ({fmt_compact(funnel['rejected_lt99_pairs'])})", zorder=3
+        idx_e2, ret_pass_vals, color=palette["primary"], width=0.74, alpha=0.92,
+        label=f"Clean ≥{id_pct_str}% ({fmt_compact(sum(ret_pass_vals))})", zorder=3
     )
     ax_e2.bar(
-        idx_e2[10:], ret_pass_vals[10:], color=palette["primary"], width=0.74, alpha=0.92,
-        label=f"Clean ≥99% ({fmt_compact(sum(ret_pass_vals))})", zorder=3
+        idx_e2, prn_pass_vals, bottom=ret_pass_vals, color="#f59e0b", width=0.74, alpha=0.90,
+        label=f"Pruned ≥{id_pct_str}% ({fmt_compact(sum(prn_pass_vals))})", zorder=3
     )
     ax_e2.bar(
-        idx_e2[10:], prn_pass_vals[10:], bottom=ret_pass_vals[10:], color="#f59e0b", width=0.74, alpha=0.90,
-        label=f"Pruned ≥99% ({fmt_compact(sum(prn_pass_vals))})", zorder=3
+        idx_e2, lt99_vals, bottom=pass_tot_vals, color="#e11d48", width=0.74, alpha=0.88,
+        label=f"Rejected <{id_pct_str}% ({fmt_compact(funnel['rejected_lt99_pairs'])})", zorder=3
     )
-    ax_e2.axvline(9.5, color="#0f172a", linestyle="--", linewidth=1.1, zorder=4)
+    ax_e2.axvline(cutoff_x_pos, color="#0f172a", linestyle="--", linewidth=1.1, zorder=4)
     ax_e2.set_xticks(idx_e2)
     ax_e2.set_xticklabels(x_labels_e2, fontsize=6.5, rotation=0)
     ax_e2.tick_params(axis="x", pad=1.5)
@@ -1202,7 +1242,7 @@ def render_10panel_figure(
     set_panel_header(
         ax_e2,
         "D2. Alignment Identity Spectrum",
-        "Read pairs by % identity (≥99% cutoff)",
+        f"Read pairs by % identity (≥{id_pct_str}% cutoff)",
         title_size=11.2,
         sub_size=8.3,
     )
@@ -1697,6 +1737,10 @@ def main() -> None:
     )
     parser.add_argument("--taxid", type=int, default=None, help="Single species TaxID (for Snakemake rule)")
     parser.add_argument("--species-slug", default=None, help="Single species slug (for Snakemake rule)")
+    parser.add_argument("--map-tag", default="mapq30_aln80_id99", help="Mapping parameter subdirectory tag (default: mapq30_aln80_id99)")
+    parser.add_argument("--min-mapq", type=int, default=None, help="Minimum MAPQ threshold used in Stage 4")
+    parser.add_argument("--min-align-frac", type=float, default=None, help="Minimum aligned read fraction used in Stage 4")
+    parser.add_argument("--max-mismatch-frac", type=float, default=None, help="Maximum mismatch fraction used in Stage 4")
     parser.add_argument("--out-png", default=None, help="Explicit output PNG path (for Snakemake rule)")
     parser.add_argument("--out-pdf", default=None, help="Explicit output PDF path (for Snakemake rule)")
     parser.add_argument("--target-r", type=float, default=0.90, help="Target Pearson R threshold")
@@ -1728,8 +1772,17 @@ def main() -> None:
             species_list.append((int(tid_str), slug))
 
     for taxid, slug in species_list:
-        logger.info(f"=== Processing 10-Panel Diagnostic Suite for {slug} (TaxID: {taxid}) ===")
-        data = compute_species_enhanced_data(taxid, slug, project_root, logger)
+        logger.info(f"=== Processing 10-Panel Diagnostic Suite for {slug} (TaxID: {taxid}, tag: {args.map_tag}) ===")
+        data = compute_species_enhanced_data(
+            taxid,
+            slug,
+            project_root,
+            logger,
+            map_tag=args.map_tag,
+            min_mapq_arg=args.min_mapq,
+            min_align_frac_arg=args.min_align_frac,
+            max_mismatch_frac_arg=args.max_mismatch_frac,
+        )
         val_dir: Path = data["val_dir"]
 
         if args.out_png and args.out_pdf and len(species_list) == 1:

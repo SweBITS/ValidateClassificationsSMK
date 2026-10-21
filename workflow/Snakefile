@@ -154,6 +154,34 @@ def get_active_species_map(wildcards=None):
     return {str(r["t_id"]): r for r in get_active_species_records(wildcards)}
 
 
+def _fmt_pct_tag(frac: float) -> str:
+    pct = round(float(frac) * 100.0, 4)
+    if abs(pct - round(pct)) < 1e-6:
+        return str(int(round(pct)))
+    return f"{pct:g}".replace(".", "p")
+
+
+def get_mapping_param_tag() -> str:
+    """
+    Construct a deterministic, filesystem-safe parameter tag for Stage 4 & Stage 5 outputs
+    (e.g. `mapq30_aln80_id99`) from `min_mapq`, `min_align_frac`, and `max_mismatch_frac`
+    (or `mapping_tag_override` if explicitly set). This keeps upstream Stages 0–3 shared
+    while isolating mapping, regression, and report outputs for each parameter set.
+    """
+    override = str(config.get("mapping_tag_override", "")).strip()
+    if override:
+        return override
+    min_mapq = int(config.get("min_mapq", 30))
+    min_align_frac = float(config.get("min_align_frac", 0.80))
+    max_mismatch_frac = float(config.get("max_mismatch_frac", 0.01))
+    aln_str = _fmt_pct_tag(min_align_frac)
+    id_str = _fmt_pct_tag(1.0 - max_mismatch_frac)
+    return f"mapq{min_mapq}_aln{aln_str}_id{id_str}"
+
+
+MAP_TAG = get_mapping_param_tag()
+
+
 wildcard_constraints:
     t_id=r"[0-9]+",
     sample=r"Lj_[0-9]+_[0-9]+_[0-9]+",
@@ -165,12 +193,12 @@ localrules:
 rule all:
     default_target: True
     input:
-        master_tsv = "results/05_reports/validation_master_summary.tsv",
-        master_parquet = "results/05_reports/validation_master_summary.parquet",
-        timeseries_parquet = "results/05_reports/validated_timeseries_long.parquet",
-        html_report = "results/05_reports/validation_report.html",
-        html_report_4panel = "results/05_reports/validation_report_4panel.html",
-        html_report_10panel = "results/05_reports/validation_report_10panel.html",
+        master_tsv = f"results/05_reports/{MAP_TAG}/validation_master_summary_{MAP_TAG}.tsv",
+        master_parquet = f"results/05_reports/{MAP_TAG}/validation_master_summary_{MAP_TAG}.parquet",
+        timeseries_parquet = f"results/05_reports/{MAP_TAG}/validated_timeseries_long_{MAP_TAG}.parquet",
+        html_report = f"results/05_reports/{MAP_TAG}/validation_report_{MAP_TAG}.html",
+        html_report_4panel = f"results/05_reports/{MAP_TAG}/validation_report_4panel_{MAP_TAG}.html",
+        html_report_10panel = f"results/05_reports/{MAP_TAG}/validation_report_10panel_{MAP_TAG}.html",
         wf_info = "results/00_ledger/workflow_run_info.json"
 
 # --- Include Modular Stage Rules --- #

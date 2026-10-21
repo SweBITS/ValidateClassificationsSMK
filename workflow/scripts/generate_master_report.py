@@ -77,17 +77,23 @@ def compute_n50_from_lengths_tsv(lengths_tsv: Path) -> int:
         return 0
 
 
-def collect_benchmarks_summary(benchmarks_dir: Path) -> List[Dict[str, Any]]:
+def collect_benchmarks_summary(benchmarks_dir: Path, map_tag: str = "") -> List[Dict[str, Any]]:
     """
     Scan Snakemake `benchmarks/**/*.tsv` files and summarize job count, mean/max walltime (s),
-    and peak RSS memory (MB) by pipeline stage.
+    and peak RSS memory (MB) by pipeline stage (filtering Stage 4 & 5 benchmarks to `map_tag` if set).
     """
     if not benchmarks_dir.is_dir():
         return []
 
     by_stage: Dict[str, List[Dict[str, float]]] = {}
     for tsv_file in sorted(benchmarks_dir.rglob("*.tsv")):
-        stage_name = tsv_file.parent.name
+        rel_parts = tsv_file.relative_to(benchmarks_dir).parts
+        if not rel_parts:
+            continue
+        stage_name = rel_parts[0]
+        if map_tag and stage_name in ("05_map_edna", "06_regress_and_report") and len(rel_parts) >= 3:
+            if rel_parts[1] != map_tag:
+                continue
         try:
             with open(tsv_file, "r", encoding="utf-8") as fh:
                 rows = list(csv.DictReader(fh, delimiter="\t"))
@@ -126,19 +132,23 @@ def main() -> None:
     )
     parser.add_argument("--wf-info", required=True, help="Path to workflow_run_info.json")
     parser.add_argument("--config-yaml", required=True, help="Path to config/config.yaml")
+    parser.add_argument("--map-tag", default="mapq30_aln80_id99", help="Mapping parameter subdirectory/file tag (e.g. mapq30_aln80_id99)")
+    parser.add_argument("--min-mapq", type=int, default=None, help="Override min_mapq from Snakemake")
+    parser.add_argument("--min-align-frac", type=float, default=None, help="Override min_align_frac from Snakemake")
+    parser.add_argument("--max-mismatch-frac", type=float, default=None, help="Override max_mismatch_frac from Snakemake")
     parser.add_argument("--stage0-ledger", required=True, help="Path to stage0_preflight_and_assemblies.tsv")
     parser.add_argument("--stage1-audit", required=True, help="Path to assembly_filtering_summary.tsv")
     parser.add_argument("--cr-summary", required=True, help="Path to cr_streaming_summary.tsv")
     parser.add_argument("--raw-weekly-long", required=True, help="Path to raw_weekly_counts_long.tsv")
-    parser.add_argument("--validation-dir", required=True, help="Base directory results/04_validation")
+    parser.add_argument("--validation-dir", required=True, help="Base directory results/04_validation/{map_tag}")
     parser.add_argument("--benchmarks-dir", required=True, help="Base directory benchmarks/")
     parser.add_argument("--template", required=True, help="Path to validation_report.html.j2")
-    parser.add_argument("--out-master-tsv", required=True, help="Output TSV: validation_master_summary.tsv")
-    parser.add_argument("--out-master-parquet", required=True, help="Output Parquet: validation_master_summary.parquet")
-    parser.add_argument("--out-timeseries-parquet", required=True, help="Output Parquet: validated_timeseries_long.parquet")
-    parser.add_argument("--out-html", required=True, help="Output HTML (4-panel report): validation_report.html")
-    parser.add_argument("--out-html-4panel", "--out-html-2x2", dest="out_html_4panel", default=None, help="Explicit output HTML for 4-panel report: validation_report_4panel.html")
-    parser.add_argument("--out-html-10panel", "--out-html-widescreen", dest="out_html_10panel", default=None, help="Output HTML for 10-panel report: validation_report_10panel.html")
+    parser.add_argument("--out-master-tsv", required=True, help="Output TSV: validation_master_summary_{map_tag}.tsv")
+    parser.add_argument("--out-master-parquet", required=True, help="Output Parquet: validation_master_summary_{map_tag}.parquet")
+    parser.add_argument("--out-timeseries-parquet", required=True, help="Output Parquet: validated_timeseries_long_{map_tag}.parquet")
+    parser.add_argument("--out-html", required=True, help="Output HTML (4-panel report): validation_report_{map_tag}.html")
+    parser.add_argument("--out-html-4panel", "--out-html-2x2", dest="out_html_4panel", default=None, help="Explicit output HTML for 4-panel report: validation_report_4panel_{map_tag}.html")
+    parser.add_argument("--out-html-10panel", "--out-html-widescreen", dest="out_html_10panel", default=None, help="Output HTML for 10-panel report: validation_report_10panel_{map_tag}.html")
     parser.add_argument("--log", default=None, help="Log file path")
     args = parser.parse_args()
 
@@ -149,6 +159,13 @@ def main() -> None:
     wf_info["end_timestamp"] = datetime.datetime.now().astimezone().isoformat()
     with open(args.config_yaml, "r", encoding="utf-8") as cfh:
         cfg = yaml.safe_load(cfh) or {}
+    if args.min_mapq is not None:
+        cfg["min_mapq"] = int(args.min_mapq)
+    if args.min_align_frac is not None:
+        cfg["min_align_frac"] = float(args.min_align_frac)
+    if args.max_mismatch_frac is not None:
+        cfg["max_mismatch_frac"] = float(args.max_mismatch_frac)
+    cfg["map_tag"] = args.map_tag
 
     # 2. Load Stage 0 ledger, Stage 1 audit, and Stage 2 CR summary
     with open(args.stage0_ledger, "r", encoding="utf-8") as fh:
@@ -356,7 +373,7 @@ def main() -> None:
     }
     kpi["validated_total"] = kpi["validated_clean"] + kpi["validated_pruned"]
 
-    benchmarks_summary = collect_benchmarks_summary(Path(args.benchmarks_dir))
+    benchmarks_summary = collect_benchmarks_summary(Path(args.benchmarks_dir), map_tag=args.map_tag)
 
     template_path = Path(args.template)
     env = jinja2.Environment(
@@ -367,6 +384,7 @@ def main() -> None:
     html_4panel = template.render(
         wf_info=wf_info,
         config=cfg,
+        map_tag=args.map_tag,
         kpi=kpi,
         species_cards=species_cards_4panel,
         benchmarks=benchmarks_summary,
@@ -376,15 +394,16 @@ def main() -> None:
     out_html.parent.mkdir(parents=True, exist_ok=True)
     out_html.write_text(html_4panel, encoding="utf-8")
 
-    out_html_4panel = Path(args.out_html_4panel) if args.out_html_4panel else out_html.parent / "validation_report_4panel.html"
+    out_html_4panel = Path(args.out_html_4panel) if args.out_html_4panel else out_html.parent / f"validation_report_4panel_{args.map_tag}.html"
     if out_html_4panel.resolve() != out_html.resolve():
         out_html_4panel.parent.mkdir(parents=True, exist_ok=True)
         out_html_4panel.write_text(html_4panel, encoding="utf-8")
 
-    out_html_10panel = Path(args.out_html_10panel) if args.out_html_10panel else out_html.parent / "validation_report_10panel.html"
+    out_html_10panel = Path(args.out_html_10panel) if args.out_html_10panel else out_html.parent / f"validation_report_10panel_{args.map_tag}.html"
     html_10panel = template.render(
         wf_info=wf_info,
         config=cfg,
+        map_tag=args.map_tag,
         kpi=kpi,
         species_cards=species_cards_10panel,
         benchmarks=benchmarks_summary,

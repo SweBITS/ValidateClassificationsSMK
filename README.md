@@ -84,23 +84,27 @@ snakemake -n
 
 # Launch on HPC2N Kebnekaise using the SLURM profile and Conda environments
 snakemake --profile slurm/hpc2n --use-conda
+
+# Or launch a run with alternative mapping parameters (reuses Stages 0–3 automatically
+# and writes Stage 4–5 outputs to results/{03_mapping,04_validation,05_reports}/mapq20_aln80_id97/):
+snakemake --profile slurm/hpc2n --use-conda --config min_mapq=20 min_align_frac=0.80 max_mismatch_frac=0.03
 ```
 
 ---
 
-## Output Directory Guide
+## Output Directory Guide (Parameter-Namespaced Stages 4–5)
 
-Every target species is tracked from start to finish—failed or excluded species **never crash the pipeline** and always appear in the final summary tables and both HTML dashboards:
+Upstream Stages 0–3 (`results/00_ledger/`, `results/01_inputs/`, and `results/02_classifiable_regions/`) are independent of mapping parameters and are **shared across all runs**. Downstream Stages 4–5 (`03_mapping`, `04_validation`, `05_reports`, and their `logs/` and `benchmarks/` folders) are automatically namespaced by the active mapping parameter tag **`{map_tag}` = `mapq{min_mapq}_aln{min_align_pct}_id{min_identity_pct}`** (default: **`mapq30_aln80_id99`**), so running new mapping thresholds never overwrites previous results:
 
 | Path | Description |
 | :--- | :--- |
-| `results/05_reports/validation_report_10panel.html` | **10-Panel Widescreen Self-Contained HTML Dashboard** embedding the 10-panel diagnostic suite (`{t_id}.diagnostic_10panel.png`) for every active species alongside executive KPIs, filterable ledger tables, and SLURM benchmarks. |
-| `results/05_reports/validation_report_4panel.html` | **4-Panel (2×2) Self-Contained HTML Dashboard** (also written to `validation_report.html`) embedding the classic 4-panel `2×2` diagnostic plots (`{t_id}.diagnostic_4panel.png`). |
-| `results/05_reports/validation_master_summary.tsv` | **Master Lifecycle Table** (also saved as `.parquet`) with all Stage 0–5 metrics and final `validation_status` for every target taxon. |
-| `results/05_reports/validated_timeseries_long.parquet` | **Unified 516-Week Time Series** (`raw_kraken_reads`, `all_cr_mapped_reads`, `validated_clean_bin_reads`) across all target taxa. |
-| `results/04_validation/{t_id}_{Species_name}/` | **Per-Species Results Folder** containing `{t_id}.diagnostic_10panel.{png,pdf}`, `{t_id}.diagnostic_4panel.{png,pdf}`, `{t_id}.bin_regression_data.tsv`, `{t_id}.enhanced_bin_metrics.tsv`, `{t_id}.pruning_trajectory.tsv`, and `{t_id}.weekly_timeseries_516w.tsv`. |
-| `results/03_mapping/{t_id}_{Species_name}/` | **Alignment Parquet & Identity Audit** containing `{t_id}.alignments.parquet`, `{t_id}.mapping_stats.tsv`, and `{t_id}.identity_histogram_lt99.tsv` (exact 516-week `<90%` and `90%–98%` 1%-bin read-pair counts). |
-| `results/00_ledger/assembly_filtering_summary.tsv` | **Stage 1 Contig Filtering Audit Table** recording raw vs. kept contigs and base pairs ($\ge 1,000\text{ bp}$). |
+| `results/05_reports/{map_tag}/validation_report_10panel_{map_tag}.html` | **10-Panel Widescreen Self-Contained HTML Dashboard** embedding the 10-panel diagnostic suite (`{t_id}.diagnostic_10panel.png`) for every active species alongside executive KPIs, filterable ledger tables, and SLURM benchmarks. |
+| `results/05_reports/{map_tag}/validation_report_4panel_{map_tag}.html` | **4-Panel (2×2) Self-Contained HTML Dashboard** (also written to `validation_report_{map_tag}.html`) embedding the classic 4-panel `2×2` diagnostic plots (`{t_id}.diagnostic_4panel.png`). |
+| `results/05_reports/{map_tag}/validation_master_summary_{map_tag}.tsv` | **Master Lifecycle Table** (also saved as `.parquet`) with all Stage 0–5 metrics and final `validation_status` for every target taxon. |
+| `results/05_reports/{map_tag}/validated_timeseries_long_{map_tag}.parquet` | **Unified 516-Week Time Series** (`raw_kraken_reads`, `all_cr_mapped_reads`, `validated_clean_bin_reads`) across all target taxa. |
+| `results/04_validation/{map_tag}/{t_id}_{Species_name}/` | **Per-Species Results Folder** containing `{t_id}.diagnostic_10panel.{png,pdf}`, `{t_id}.diagnostic_4panel.{png,pdf}`, `{t_id}.bin_regression_data.tsv`, `{t_id}.enhanced_bin_metrics.tsv`, `{t_id}.pruning_trajectory.tsv`, and `{t_id}.weekly_timeseries_516w.tsv`. |
+| `results/03_mapping/{map_tag}/{t_id}/` | **Alignment Parquet & Identity Audit** containing `{t_id}.passing_alignments.parquet`, `{t_id}.mapping_stats.tsv`, and `{t_id}.identity_histogram_lt99.tsv` (exact 516-week `<90%` through `100%` 1%-bin read-pair counts). |
+| `results/00_ledger/assembly_filtering_summary.tsv` | **Stage 1 Contig Filtering Audit Table** (shared across mapping runs) recording raw vs. kept contigs and base pairs ($\ge 1,000\text{ bp}$). |
 
 ---
 

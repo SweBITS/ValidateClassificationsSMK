@@ -20,19 +20,19 @@ rule map_edna_to_cr:
         r1 = "results/01_inputs/fastq/taxID-{t_id}_R1.fq.gz",
         r2 = "results/01_inputs/fastq/taxID-{t_id}_R2.fq.gz"
     output:
-        parquet = "results/03_mapping/{t_id}/{t_id}.passing_alignments.parquet",
-        stats_tsv = "results/03_mapping/{t_id}/{t_id}.mapping_stats.tsv",
-        id_hist_tsv = "results/03_mapping/{t_id}/{t_id}.identity_histogram_lt99.tsv"
+        parquet = f"results/03_mapping/{MAP_TAG}/{{t_id}}/{{t_id}}.passing_alignments.parquet",
+        stats_tsv = f"results/03_mapping/{MAP_TAG}/{{t_id}}/{{t_id}}.mapping_stats.tsv",
+        id_hist_tsv = f"results/03_mapping/{MAP_TAG}/{{t_id}}/{{t_id}}.identity_histogram_lt99.tsv"
     params:
         script = str(SCRIPTS_DIR / "filter_sam_to_parquet.py"),
         min_mapq = config.get("min_mapq", 30),
         min_align_frac = config.get("min_align_frac", 0.80),
         max_mismatch_frac = config.get("max_mismatch_frac", 0.01)
     log:
-        minimap2 = "logs/05_map_edna/minimap2_taxID-{t_id}.log",
-        filter_sam = "logs/05_map_edna/filter_sam_taxID-{t_id}.log"
+        minimap2 = f"logs/05_map_edna/{MAP_TAG}/minimap2_taxID-{{t_id}}.log",
+        filter_sam = f"logs/05_map_edna/{MAP_TAG}/filter_sam_taxID-{{t_id}}.log"
     benchmark:
-        "benchmarks/05_map_edna/map_edna_to_cr_taxID-{t_id}.tsv"
+        f"benchmarks/05_map_edna/{MAP_TAG}/map_edna_to_cr_taxID-{{t_id}}.tsv"
     conda:
         str(ENVS_DIR / "mapping.yaml")
     threads: get_threads("map_edna_to_cr", 8)

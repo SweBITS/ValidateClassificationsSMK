@@ -83,9 +83,17 @@ bin_max_scale: 1.7
 # fastp-trimmed eDNA reads vary in length. Requiring >= 80% of the read to align
 # (qlen - sclen >= 0.80 * qlen) with <= 1% edit distance across the aligned segment
 # (NM <= 0.01 * (qlen - sclen)) enforces >= 99% sequence identity uniformly across read lengths.
+#
+# Output Namespacing by Mapping Parameters:
+# Stages 0–3 (00_ledger, 01_inputs, 02_classifiable_regions) are independent of mapping parameters
+# and are shared across runs. Stages 4–5 automatically namespace their directories and report
+# filenames using `mapq{min_mapq}_aln{min_align_pct}_id{min_identity_pct}` (e.g., `mapq30_aln80_id99`
+# under `results/{03_mapping,04_validation,05_reports}/<tag>/`), so running with different mapping
+# thresholds (here or via `--config`) never overwrites previous runs.
 min_mapq: 30
 min_align_frac: 0.80
 max_mismatch_frac: 0.01
+mapping_tag_override: ""       # Optional custom folder/file tag override (leave "" for automatic `mapq{Q}_aln{A}_id{I}`)
 
 # --- 7. Stage 5: Recursive Outlier Regression & Validation Criteria --- #
 # Why min_occupied_bins_frac = 0.50 and positive slope:

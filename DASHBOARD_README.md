@@ -8,14 +8,14 @@ Every panel (`A` through `J`) is documented below in two complementary formats:
 
 ---
 
-## 1. Dashboard Variants & File Naming
+## 1. Dashboard Variants & Parameter-Namespaced File Naming
 
-The pipeline produces two versions of the per-species figures and two versions of the self-contained interactive HTML report:
+Upstream Stages 0–3 (`00_ledger`, `01_inputs`, `02_classifiable_regions`) are shared across runs, while Stage 4 & 5 outputs are automatically namespaced by **`{map_tag}` = `mapq{min_mapq}_aln{min_align_pct}_id{min_identity_pct}`** (default: **`mapq30_aln80_id99`**) so runs with different mapping parameters never overwrite each other:
 
-| Output Variant | Per-Species Figure Files (`results/04_validation/{t_id}_{Species}/`) | Merged Self-Contained HTML Report (`results/05_reports/`) | Purpose |
+| Output Variant | Per-Species Figure Files (`results/04_validation/{map_tag}/{t_id}_{Species}/`) | Merged Self-Contained HTML Report (`results/05_reports/{map_tag}/`) | Purpose |
 | :--- | :--- | :--- | :--- |
-| **10-Panel Widescreen Suite** | `{t_id}.diagnostic_10panel.png`<br>`{t_id}.diagnostic_10panel.pdf` | `validation_report_10panel.html` | Full `32.0 × 18.2 in` (`300 DPI`) 10-panel widescreen dashboard (`Panels A–J`) covering genomic uniformity, outlier classification, read & sequence attrition funnels, sequence identity spectrum, genome-wide Manhattan coverage, 10-year time series, seasonal phenology, bin sample occupancy, and a `100 bins × active weeks` hierarchical clustermap. |
-| **4-Panel Compact (2×2) Suite** | `{t_id}.diagnostic_4panel.png`<br>`{t_id}.diagnostic_4panel.pdf` | `validation_report_4panel.html`<br>*(also aliased as `validation_report.html`)* | Classic `16.5 × 11.2 in` (`300 DPI`) 4-panel summary (`A.` Genomic Proportionality Regression, `B.` Outlier Pruning Trajectory, `C.` 10-Year Weekly Time Series, `D.` 1:1 Weekly Raw vs. Validated Scatter). |
+| **10-Panel Widescreen Suite** | `{t_id}.diagnostic_10panel.png`<br>`{t_id}.diagnostic_10panel.pdf` | `validation_report_10panel_{map_tag}.html` | Full `32.0 × 18.2 in` (`300 DPI`) 10-panel widescreen dashboard (`Panels A–J`) covering genomic uniformity, outlier classification, read & sequence attrition funnels, sequence identity spectrum, genome-wide Manhattan coverage, 10-year time series, seasonal phenology, bin sample occupancy, and a `100 bins × active weeks` hierarchical clustermap. |
+| **4-Panel Compact (2×2) Suite** | `{t_id}.diagnostic_4panel.png`<br>`{t_id}.diagnostic_4panel.pdf` | `validation_report_4panel_{map_tag}.html`<br>*(also aliased as `validation_report_{map_tag}.html`)* | Classic `16.5 × 11.2 in` (`300 DPI`) 4-panel summary (`A.` Genomic Proportionality Regression, `B.` Outlier Pruning Trajectory, `C.` 10-Year Weekly Time Series, `D.` 1:1 Weekly Raw vs. Validated Scatter). |
 
 ---
 
