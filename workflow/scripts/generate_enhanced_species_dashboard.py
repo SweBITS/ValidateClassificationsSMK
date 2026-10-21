@@ -584,13 +584,18 @@ def compute_species_enhanced_data(
     rejected_lt99_pairs = failed_mm_mates / 2.0
 
     retained_bin_set = {r["bin_id"] for r in bin_rows if r["is_retained"].lower() == "true"}
+    # Group by (read_id, sample_id, cr_id, bin_id) and take max(mismatch_frac) across the two mates
+    # so every passing read pair is binned by its exact pair-minimum sequence identity
+    # min(ID_R1, ID_R2) — identical to how filter_sam_to_parquet.py bins rejected pairs!
     pass_hist_df = (
-        aln_lazy.with_columns([
+        aln_lazy.group_by(["read_id", "sample_id", "cr_id", "bin_id"])
+        .agg(pl.col("mismatch_frac").max().alias("pair_max_mm"))
+        .with_columns([
             pl.col("bin_id").is_in(list(retained_bin_set)).alias("is_ret"),
-            (100.0 * (1.0 - pl.col("mismatch_frac")) + 1e-9).floor().cast(pl.Int32).clip(89, 100).alias("id_bin"),
+            (100.0 * (1.0 - pl.col("pair_max_mm")) + 1e-9).floor().cast(pl.Int32).clip(89, 100).alias("id_bin"),
         ])
         .group_by(["is_ret", "id_bin"])
-        .agg((pl.len() / 2.0).alias("pair_equiv"))
+        .agg(pl.len().cast(pl.Float64).alias("pair_equiv"))
         .collect()
     )
     ret_pass_hist = {b: 0.0 for b in range(89, 101)}
@@ -603,8 +608,8 @@ def compute_species_enhanced_data(
             else:
                 prn_pass_hist[b_k] = float(r["pair_equiv"])
 
-    # Load rejected identity distribution [89 (<90%), 90, 91, ..., 100]:
-    # Prefer exact 516-week columns from mapping_stats.tsv if present; otherwise load sidecar TSV
+    # Load rejected pair-minimum identity distribution [89 (<90%), 90, 91, ..., 100] directly
+    # without rescaling by single-mate MAPQ/align_frac orphans:
     lt99_bins = {b: 0.0 for b in range(89, 101)}
     if "id_lt90_pairs" in map_stats:
         lt99_bins[89] = float(map_stats.get("id_lt90_pairs", 0))
@@ -616,10 +621,7 @@ def compute_species_enhanced_data(
                 b = int(r.get("id_bin", r.get("id_bin_floor", 0)))
                 if b in lt99_bins:
                     lt99_bins[b] = float(r.get("pair_count", r.get("sampled_mates", 0.0)))
-    tot_sampled_lt99 = sum(lt99_bins.values())
-    if tot_sampled_lt99 > 0 and rejected_lt99_pairs > 0:
-        for b in lt99_bins:
-            lt99_bins[b] = rejected_lt99_pairs * (lt99_bins[b] / tot_sampled_lt99)
+    rejected_lt99_pairs = float(sum(lt99_bins.values())) if sum(lt99_bins.values()) > 0 else failed_mm_mates / 2.0
 
     funnel_data = {
         "stage_labels": [

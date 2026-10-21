@@ -358,7 +358,8 @@ def main() -> None:
             mate_bin = 89 if int(math.floor(id_pct + 1e-9)) < 90 else min(100, int(math.floor(id_pct + 1e-9)))
             lt99_mate_hist[mate_bin] += 1
 
-        # Pair-level rejected identity histogram tracking for mates that both passed MAPQ + aligned length
+        # Pair-level rejected identity histogram tracking for complete 2-mate proper pairs
+        # where BOTH mates passed MAPQ + aligned length on the same CR
         if pending_align_mate is None:
             pending_align_mate = (read_id, cr_id, mate, id_pct, mate_passed_id)
         elif (
@@ -374,9 +375,7 @@ def main() -> None:
                 lt99_pair_hist[pair_bin] += 1
             pending_align_mate = None
         else:
-            if not pending_align_mate[4]:
-                p_bin = 89 if int(math.floor(pending_align_mate[3] + 1e-9)) < 90 else min(100, int(math.floor(pending_align_mate[3] + 1e-9)))
-                lt99_pair_hist[p_bin] += 1
+            # Previous pending_align_mate's partner failed MAPQ or align_frac; do not count single-mate orphans
             pending_align_mate = (read_id, cr_id, mate, id_pct, mate_passed_id)
 
         if not mate_passed_id:
@@ -422,10 +421,7 @@ def main() -> None:
             failed_mate_pair += 1
             pending_mate = curr_rec
 
-    if pending_align_mate is not None and not pending_align_mate[4]:
-        p_bin = 89 if int(math.floor(pending_align_mate[3] + 1e-9)) < 90 else min(100, int(math.floor(pending_align_mate[3] + 1e-9)))
-        lt99_pair_hist[p_bin] += 1
-        pending_align_mate = None
+    pending_align_mate = None
 
     if pending_mate is not None:
         failed_mate_pair += 1
