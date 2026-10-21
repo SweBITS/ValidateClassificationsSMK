@@ -113,13 +113,13 @@ resources:
     mem_mb: 4000
     runtime_min: 30
   extract_sample_reads:
-    threads: 4
-    mem_mb: 8000               # Mean RSS = 190 MB; scales geometrically up to >39 GB on aphid bloom samples
-    runtime_min: 60
+    threads: 2                 # Median CPU load = 108% (max 131%); 2 threads halves core reservation across 516 jobs
+    mem_mb: 4000               # Median RSS = 84 MB (p95 = 662 MB); dynamically scaled by pre-computed sample clade reads (up to ~22 GB on Attempt 1 for 36M-read aphid blooms)
+    runtime_min: 60            # Median = 10.5m, p95 = 15.4m, max = 36.7m
   merge_species_fastq:
     threads: 1
-    mem_mb: 2000               # Pure RFC 1952 cat; Max RSS = 15 MB, Max time = 45s
-    runtime_min: 20
+    mem_mb: 1000               # Pure RFC 1952 cat; Max RSS = 44 MB, Max time = 48.9s
+    runtime_min: 10
   stream_kraken_cr:            # Single-pass FIFO rule on cpu_largemem (retries: 0)
     threads: 72
     mem_mb: 2800000
@@ -130,22 +130,22 @@ resources:
     mem_mb: 4000               # + 2x reference FASTA size on disk (e.g. +4.8 GB for 2.4 Gb Salmo trutta)
     runtime_min: 20
   map_edna_to_cr:
-    threads: 8
-    mem_mb: 8000               # + 6x (CR FASTA + R1/R2 FASTQ size in MB) on Attempt 1
-    runtime_min: 60
+    threads: 8                 # Saturates 8 cores on large species (p95 load = 727%, max = 774%)
+    mem_mb: 8000               # + 2x (CR FASTA + R1/R2 FASTQ size in MB) on Attempt 1 (Max RSS = 7.64 GB)
+    runtime_min: 45            # Median = 15.8s, p95 = 6.8m, max = 26.4m (Rhopalosiphum maidis)
   validate_and_regress:
-    threads: 2
-    mem_mb: 4000               # + 30x (.passing_alignments.parquet size in MB) on Attempt 1
-    runtime_min: 20
+    threads: 1                 # Median load = 32% (max = 127%), Max time = 20.7s
+    mem_mb: 4000               # + 30x (.passing_alignments.parquet size in MB) on Attempt 1 (Max RSS = 7.46 GB)
+    runtime_min: 10
   plot_species:
     threads: 1
-    mem_mb: 2000               # Max RSS = 260 MB, Max time = 4.5s (4-panel figure)
-    runtime_min: 15
+    mem_mb: 1500               # Max RSS = 199 MB, Max time = 9.0s (4-panel figure)
+    runtime_min: 10
   plot_species_10panel:
-    threads: 2
-    mem_mb: 6000               # + 15x (CR FASTA + .passing_alignments.parquet size in MB) on Attempt 1
-    runtime_min: 20
+    threads: 1                 # Median load = 85% (p95 = 99%, max = 114%), Max time = 21.6s
+    mem_mb: 3500               # + 3x (CR FASTA + .passing_alignments.parquet size in MB) on Attempt 1 (Max RSS = 1.65 GB)
+    runtime_min: 10
   master_report:
-    threads: 4
-    mem_mb: 16000              # Generates both 4-panel and 10-panel self-contained HTML reports
-    runtime_min: 30
+    threads: 1                 # Empirical load = 55%, Max RSS = 2.13 GB, Runtime = 6.7s
+    mem_mb: 6000               # Generates both 4-panel and 10-panel self-contained HTML reports
+    runtime_min: 15

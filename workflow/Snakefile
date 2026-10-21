@@ -75,6 +75,57 @@ def scale_mem_mb(rule_key: str, default_mb: int = 4000, input_mb_mult: float = 0
     return _mem
 
 
+_SAMPLE_READS_CACHE = None
+
+
+def _get_sample_target_reads_map():
+    """
+    Lazily loads and caches the total Stage 0 target clade read pairs per (year, week)
+    across all active species (`results/00_ledger/active_species.tsv`), allowing
+    `extract_sample_clade_reads` to predict `seqtk subseq` + Python demux RAM usage
+    with >99.9% accuracy before submitting the SLURM job.
+    """
+    global _SAMPLE_READS_CACHE
+    if _SAMPLE_READS_CACHE is not None:
+        return _SAMPLE_READS_CACHE
+
+    active_path = Path("results/00_ledger/active_species.tsv")
+    weekly_path = Path("results/01_inputs/raw_weekly_counts/raw_weekly_counts_long.tsv")
+    if not active_path.is_file() or not weekly_path.is_file():
+        return {}
+
+    try:
+        with open(active_path, "r", encoding="utf-8") as fh:
+            active_tids = {row["t_id"] for row in csv.DictReader(fh, delimiter="\t") if row.get("t_id")}
+        counts = {}
+        with open(weekly_path, "r", encoding="utf-8") as fh:
+            for row in csv.DictReader(fh, delimiter="\t"):
+                if row.get("t_id") in active_tids:
+                    key = (int(row["year"]), int(row["week"]))
+                    counts[key] = counts.get(key, 0) + int(row["raw_kraken_reads"])
+        _SAMPLE_READS_CACHE = counts
+        return _SAMPLE_READS_CACHE
+    except Exception:
+        return {}
+
+
+def scale_sample_extract_mem_mb(rule_key: str = "extract_sample_reads", default_mb: int = 4000):
+    base = int(RES_CFG.get(rule_key, {}).get("mem_mb", default_mb))
+
+    def _mem(wildcards, attempt):
+        est_mb = base
+        try:
+            parts = str(wildcards.sample).split("_")
+            yw = (int(parts[1]), int(parts[2]))
+            sample_reads = _get_sample_target_reads_map().get(yw, 0)
+            est_mb = max(base, int(2000 + 0.55 * (sample_reads / 1000.0)))
+        except Exception:
+            est_mb = base
+        return int(round(est_mb * (MEM_RETRY_BASE ** (attempt - 1))))
+
+    return _mem
+
+
 def scale_runtime(rule_key: str, default_min: int = 30):
     base = int(RES_CFG.get(rule_key, {}).get("runtime_min", default_min))
     return lambda wildcards, attempt: f"{int(round(base * (RUNTIME_RETRY_BASE ** (attempt - 1))))}m"

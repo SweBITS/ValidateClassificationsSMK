@@ -36,12 +36,12 @@ rule validate_and_regress_species:
         "benchmarks/06_regress_and_report/validate_and_regress_{t_id}_{species_slug}.tsv"
     conda:
         str(ENVS_DIR / "core_polars_joltax.yaml")
-    threads: get_threads("validate_and_regress", 2)
+    threads: get_threads("validate_and_regress", 1)
     retries: DEFAULT_RETRIES
     resources:
         mem_mb = scale_mem_mb("validate_and_regress", 4000, input_mb_mult=30.0),
-        runtime = scale_runtime("validate_and_regress", 15),
-        cpus_per_task = get_threads("validate_and_regress", 2)
+        runtime = scale_runtime("validate_and_regress", 10),
+        cpus_per_task = get_threads("validate_and_regress", 1)
     shell:
         r"""
         python {params.script} \
@@ -94,7 +94,7 @@ rule generate_species_diagnostic_figure:
     threads: get_threads("plot_species", 1)
     retries: DEFAULT_RETRIES
     resources:
-        mem_mb = scale_mem_mb("plot_species", 2000),
+        mem_mb = scale_mem_mb("plot_species", 1500),
         runtime = scale_runtime("plot_species", 10),
         cpus_per_task = get_threads("plot_species", 1)
     shell:
@@ -152,12 +152,12 @@ rule generate_species_10panel_figure:
         "benchmarks/06_regress_and_report/plot_species_10panel_{t_id}_{species_slug}.tsv"
     conda:
         str(ENVS_DIR / "core_polars_joltax.yaml")
-    threads: get_threads("plot_species_10panel", 2)
+    threads: get_threads("plot_species_10panel", 1)
     retries: DEFAULT_RETRIES
     resources:
-        mem_mb = scale_mem_mb("plot_species_10panel", 6000, input_mb_mult=15.0),
-        runtime = scale_runtime("plot_species_10panel", 20),
-        cpus_per_task = get_threads("plot_species_10panel", 2)
+        mem_mb = scale_mem_mb("plot_species_10panel", 3500, input_mb_mult=3.0),
+        runtime = scale_runtime("plot_species_10panel", 10),
+        cpus_per_task = get_threads("plot_species_10panel", 1)
     shell:
         r"""
         python {params.script} \
@@ -250,12 +250,12 @@ rule generate_master_validation_report:
         "benchmarks/06_regress_and_report/generate_master_validation_report.tsv"
     conda:
         str(ENVS_DIR / "core_polars_joltax.yaml")
-    threads: get_threads("master_report", 4)
+    threads: get_threads("master_report", 1)
     retries: DEFAULT_RETRIES
     resources:
-        mem_mb = scale_mem_mb("master_report", 16000),
-        runtime = scale_runtime("master_report", 30),
-        cpus_per_task = get_threads("master_report", 4)
+        mem_mb = scale_mem_mb("master_report", 6000),
+        runtime = scale_runtime("master_report", 15),
+        cpus_per_task = get_threads("master_report", 1)
     shell:
         r"""
         python {params.script} \

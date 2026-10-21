@@ -27,12 +27,12 @@ rule extract_sample_clade_reads:
         "benchmarks/02_extract_reads/{sample}.extract.tsv"
     conda:
         str(ENVS_DIR / "extract_reads.yaml")
-    threads: get_threads("extract_sample_reads", 4)
+    threads: get_threads("extract_sample_reads", 2)
     retries: DEFAULT_RETRIES
     resources:
-        mem_mb = scale_mem_mb("extract_sample_reads", 8000),
+        mem_mb = scale_sample_extract_mem_mb("extract_sample_reads", 4000),
         runtime = scale_runtime("extract_sample_reads", 60),
-        cpus_per_task = get_threads("extract_sample_reads", 4)
+        cpus_per_task = get_threads("extract_sample_reads", 2)
     shell:
         r"""
         python {params.script} \
@@ -74,8 +74,8 @@ rule merge_species_fastq:
     threads: get_threads("merge_species_fastq", 1)
     retries: DEFAULT_RETRIES
     resources:
-        mem_mb = scale_mem_mb("merge_species_fastq", 2000),
-        runtime = scale_runtime("merge_species_fastq", 15),
+        mem_mb = scale_mem_mb("merge_species_fastq", 1000),
+        runtime = scale_runtime("merge_species_fastq", 10),
         cpus_per_task = get_threads("merge_species_fastq", 1)
     shell:
         r"""

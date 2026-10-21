@@ -38,7 +38,7 @@ rule map_edna_to_cr:
     threads: get_threads("map_edna_to_cr", 8)
     retries: DEFAULT_RETRIES
     resources:
-        mem_mb = scale_mem_mb("map_edna_to_cr", 8000, input_mb_mult=6.0),
+        mem_mb = scale_mem_mb("map_edna_to_cr", 8000, input_mb_mult=2.0),
         runtime = scale_runtime("map_edna_to_cr", 45),
         cpus_per_task = get_threads("map_edna_to_cr", 8)
     shell:
