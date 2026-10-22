@@ -235,7 +235,8 @@ def compute_species_enhanced_data(
     slug: str,
     project_root: Path,
     logger: Any,
-    map_tag: str = "mapq30_aln80_id99",
+    map_tag: str = "bins100_s0p3-1p7_mapq30_aln80_id99",
+    bin_tag: str = "",
     min_mapq_arg: Any = None,
     min_align_frac_arg: Any = None,
     max_mismatch_frac_arg: Any = None,
@@ -247,7 +248,20 @@ def compute_species_enhanced_data(
         if val_dir_fallback.is_dir():
             val_dir = val_dir_fallback
 
-    cr_dir = project_root / "results" / "02_classifiable_regions" / str(taxid)
+    eff_bin_tag = str(bin_tag or "").strip()
+    if not eff_bin_tag and map_tag and "_mapq" in map_tag:
+        eff_bin_tag = map_tag.split("_mapq", 1)[0]
+
+    cr_dir = (
+        project_root / "results" / "02_classifiable_regions" / eff_bin_tag / str(taxid)
+        if eff_bin_tag
+        else project_root / "results" / "02_classifiable_regions" / str(taxid)
+    )
+    if not (cr_dir / f"{taxid}.cr_contigs.fa").is_file():
+        cr_dir_fallback = project_root / "results" / "02_classifiable_regions" / str(taxid)
+        if (cr_dir_fallback / f"{taxid}.cr_contigs.fa").is_file():
+            cr_dir = cr_dir_fallback
+
     map_dir = project_root / "results" / "03_mapping" / map_tag / str(taxid) if map_tag else project_root / "results" / "03_mapping" / str(taxid)
     if not map_dir.is_dir():
         map_dir_fallback = project_root / "results" / "03_mapping" / str(taxid)
@@ -858,11 +872,12 @@ def render_10panel_figure(
     t_tid.set_position((x_start_hdr + w_sp, y_hdr))
     t_badge.set_position((x_start_hdr + w_sp + w_tid, y_hdr))
 
+    n_bins_total = len(bin_rows) if bin_rows else int(metrics.get("n_bins", 100) or 100)
     subtitle_1 = (
         f"Reference Genome: {metrics.get('assembly_accession', 'NA')} ({fmt_bp(total_asm_bp)})   |   "
         f"Classifiable Sequence (CR): {fmt_bp(total_cr_bp)} ({100.0 * total_cr_bp / max(1, total_asm_bp):.1f}% of genome; "
         f"{metrics.get('retained_cr_pct', 0):.1f}% retained across "
-        f"{100 - int(metrics.get('bins_pruned_count', 0))}/100 clean bins; {cr_full.height:,} CR segments)   |   "
+        f"{n_bins_total - int(metrics.get('bins_pruned_count', 0))}/{n_bins_total} clean bins; {cr_full.height:,} CR segments)   |   "
         f"eDNA Read Pairs: {int(metrics.get('raw_eDNA_reads', 0)):,} raw  →  "
         f"{int(metrics.get('total_mapped_read_pairs', 0)):,} CR-mapped  →  "
         f"{int(metrics.get('retained_mapped_read_pairs', 0)):,} clean ({metrics.get('retained_mapped_reads_pct', 0):.1f}%)"
@@ -1384,7 +1399,7 @@ def render_10panel_figure(
         "E. Genome-Wide CR Coverage Map (Manhattan Plot)",
         f"Read density across {cr_full.height:,} CR segments (rose bands = pruned bins; gray band = linear 0–1 scale)",
     )
-    ax_c.set_xlabel("Cumulative Classifiable Region Coordinate (Mb, bin_001 → bin_100)", fontsize=9.0, color="#1e293b")
+    ax_c.set_xlabel(f"Cumulative Classifiable Region Coordinate (Mb, bin_001 → bin_{n_bins_total:03d})", fontsize=9.0, color="#1e293b")
     ax_c.set_ylabel("Read Density (Reads / kb)", fontsize=9.2, color="#1e293b")
 
     # ======================================================================== #
@@ -1703,7 +1718,7 @@ def render_10panel_figure(
     set_panel_header(
         ax_dendro,
         "J. Bin × Week Hierarchical Clustermap",
-        f"100 CR bins clustered by temporal profile across {n_act_w} active weeks (Ward linkage)",
+        f"{n_bins_total} CR bins clustered by temporal profile across {n_act_w} active weeks (Ward linkage)",
     )
 
     # Legend for Pruned Status strip at top-right of Panel J
@@ -1739,7 +1754,8 @@ def main() -> None:
     )
     parser.add_argument("--taxid", type=int, default=None, help="Single species TaxID (for Snakemake rule)")
     parser.add_argument("--species-slug", default=None, help="Single species slug (for Snakemake rule)")
-    parser.add_argument("--map-tag", default="mapq30_aln80_id99", help="Mapping parameter subdirectory tag (default: mapq30_aln80_id99)")
+    parser.add_argument("--bin-tag", default="", help="Binning parameter subdirectory tag (e.g. bins100_s0p3-1p7)")
+    parser.add_argument("--map-tag", default="bins100_s0p3-1p7_mapq30_aln80_id99", help="Run/mapping subdirectory tag")
     parser.add_argument("--min-mapq", type=int, default=None, help="Minimum MAPQ threshold used in Stage 4")
     parser.add_argument("--min-align-frac", type=float, default=None, help="Minimum aligned read fraction used in Stage 4")
     parser.add_argument("--max-mismatch-frac", type=float, default=None, help="Maximum mismatch fraction used in Stage 4")
@@ -1781,6 +1797,7 @@ def main() -> None:
             project_root,
             logger,
             map_tag=args.map_tag,
+            bin_tag=args.bin_tag,
             min_mapq_arg=args.min_mapq,
             min_align_frac_arg=args.min_align_frac,
             max_mismatch_frac_arg=args.max_mismatch_frac,

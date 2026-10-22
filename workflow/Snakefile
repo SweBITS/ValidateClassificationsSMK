@@ -161,12 +161,31 @@ def _fmt_pct_tag(frac: float) -> str:
     return f"{pct:g}".replace(".", "p")
 
 
+def _fmt_scale_tag(val: float) -> str:
+    return f"{float(val):g}".replace(".", "p")
+
+
+def get_bin_param_tag() -> str:
+    """
+    Construct a deterministic, filesystem-safe parameter tag for Stage 3 binning outputs
+    (e.g. `bins100_s0p3-1p7`) from `n_bins`, `bin_min_scale`, and `bin_max_scale`
+    (or `bin_tag_override` if explicitly set). This keeps upstream Stages 0–2 shared
+    while isolating binned CR references and metadata for each binning configuration.
+    """
+    override = str(config.get("bin_tag_override", "")).strip()
+    if override:
+        return override
+    n_bins = int(config.get("n_bins", 100))
+    min_s = _fmt_scale_tag(config.get("bin_min_scale", 0.3))
+    max_s = _fmt_scale_tag(config.get("bin_max_scale", 1.7))
+    return f"bins{n_bins}_s{min_s}-{max_s}"
+
+
 def get_mapping_param_tag() -> str:
     """
-    Construct a deterministic, filesystem-safe parameter tag for Stage 4 & Stage 5 outputs
-    (e.g. `mapq30_aln80_id99`) from `min_mapq`, `min_align_frac`, and `max_mismatch_frac`
-    (or `mapping_tag_override` if explicitly set). This keeps upstream Stages 0–3 shared
-    while isolating mapping, regression, and report outputs for each parameter set.
+    Construct a deterministic, filesystem-safe parameter tag for Stage 4 & Stage 5 mapping
+    thresholds (e.g. `mapq30_aln80_id99`) from `min_mapq`, `min_align_frac`, and
+    `max_mismatch_frac` (or `mapping_tag_override` if explicitly set).
     """
     override = str(config.get("mapping_tag_override", "")).strip()
     if override:
@@ -179,7 +198,9 @@ def get_mapping_param_tag() -> str:
     return f"mapq{min_mapq}_aln{aln_str}_id{id_str}"
 
 
+BIN_TAG = get_bin_param_tag()
 MAP_TAG = get_mapping_param_tag()
+RUN_TAG = f"{BIN_TAG}_{MAP_TAG}"
 
 
 wildcard_constraints:
@@ -193,12 +214,12 @@ localrules:
 rule all:
     default_target: True
     input:
-        master_tsv = f"results/05_reports/{MAP_TAG}/validation_master_summary_{MAP_TAG}.tsv",
-        master_parquet = f"results/05_reports/{MAP_TAG}/validation_master_summary_{MAP_TAG}.parquet",
-        timeseries_parquet = f"results/05_reports/{MAP_TAG}/validated_timeseries_long_{MAP_TAG}.parquet",
-        html_report = f"results/05_reports/{MAP_TAG}/validation_report_{MAP_TAG}.html",
-        html_report_4panel = f"results/05_reports/{MAP_TAG}/validation_report_4panel_{MAP_TAG}.html",
-        html_report_10panel = f"results/05_reports/{MAP_TAG}/validation_report_10panel_{MAP_TAG}.html",
+        master_tsv = f"results/05_reports/{RUN_TAG}/validation_master_summary_{RUN_TAG}.tsv",
+        master_parquet = f"results/05_reports/{RUN_TAG}/validation_master_summary_{RUN_TAG}.parquet",
+        timeseries_parquet = f"results/05_reports/{RUN_TAG}/validated_timeseries_long_{RUN_TAG}.parquet",
+        html_report = f"results/05_reports/{RUN_TAG}/validation_report_{RUN_TAG}.html",
+        html_report_4panel = f"results/05_reports/{RUN_TAG}/validation_report_4panel_{RUN_TAG}.html",
+        html_report_10panel = f"results/05_reports/{RUN_TAG}/validation_report_10panel_{RUN_TAG}.html",
         wf_info = "results/00_ledger/workflow_run_info.json"
 
 # --- Include Modular Stage Rules --- #

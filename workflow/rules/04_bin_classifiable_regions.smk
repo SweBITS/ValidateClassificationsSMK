@@ -29,18 +29,21 @@ rule build_cr_bins:
     WHY:
     Takes the merged Classifiable Regions (CRs) for a species from the active coverage tier
     (`2x` by default, or `4x`), sorts contigs containing CRs from shortest total contig length
-    to longest, partitions the total CR sequence into 100 bins of linearly increasing target
-    capacity ($0.3\\bar{L}$ to $1.7\\bar{L}$), extracts ONLY those CR sequences into a compact
-    reference FASTA (`{t_id}.cr_contigs.fa`) for Stage 4 alignment, and cleans up the
-    temporary full-genome `{t_id}.{acc}.filtered.fna` file.
+    to longest, partitions the total CR sequence into `n_bins` of linearly increasing target
+    capacity ($0.3\\bar{L}$ to $1.7\\bar{L}$), and extracts ONLY those CR sequences into a compact
+    reference FASTA (`results/02_classifiable_regions/{BIN_TAG}/{t_id}/{t_id}.cr_contigs.fa`)
+    for Stage 4 alignment.
+
+    NOTE: `--cleanup-filtered-fasta` is intentionally omitted so that `{t_id}.{acc}.filtered.fna`
+    remains on disk across multiple runs with different `n_bins` or `bin_min_scale`/`bin_max_scale`.
     """
     input:
         active_species = "results/00_ledger/active_species.tsv",
         cr_sentinel = "results/02_classifiable_regions/cr_stream.done",
         contig_lengths = get_species_contig_lengths
     output:
-        cr_fasta = "results/02_classifiable_regions/{t_id}/{t_id}.cr_contigs.fa",
-        bins_tsv = "results/02_classifiable_regions/{t_id}/{t_id}.bins_metadata.tsv"
+        cr_fasta = f"results/02_classifiable_regions/{BIN_TAG}/{{t_id}}/{{t_id}}.cr_contigs.fa",
+        bins_tsv = f"results/02_classifiable_regions/{BIN_TAG}/{{t_id}}/{{t_id}}.bins_metadata.tsv"
     params:
         script = str(SCRIPTS_DIR / "build_cr_bins.py"),
         filtered_fasta = get_species_filtered_fasta,
@@ -50,9 +53,9 @@ rule build_cr_bins:
         min_scale = config.get("bin_min_scale", 0.3),
         max_scale = config.get("bin_max_scale", 1.7)
     log:
-        "logs/04_bin_cr/build_cr_bins_taxID-{t_id}.log"
+        f"logs/04_bin_cr/{BIN_TAG}/build_cr_bins_taxID-{{t_id}}.log"
     benchmark:
-        "benchmarks/04_bin_cr/build_cr_bins_taxID-{t_id}.tsv"
+        f"benchmarks/04_bin_cr/{BIN_TAG}/build_cr_bins_taxID-{{t_id}}.tsv"
     conda:
         str(ENVS_DIR / "core_polars_joltax.yaml")
     threads: get_threads("build_cr_bins", 1)
@@ -73,6 +76,5 @@ rule build_cr_bins:
             --n-bins {params.n_bins} \
             --min-scale {params.min_scale} \
             --max-scale {params.max_scale} \
-            --cleanup-filtered-fasta \
             --log {log}
         """

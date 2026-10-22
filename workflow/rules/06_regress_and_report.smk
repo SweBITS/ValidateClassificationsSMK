@@ -14,15 +14,15 @@ rule validate_and_regress_species:
     input:
         active_species = "results/00_ledger/active_species.tsv",
         stage1_audit = "results/00_ledger/assembly_filtering_summary.tsv",
-        bins_tsv = "results/02_classifiable_regions/{t_id}/{t_id}.bins_metadata.tsv",
-        parquet = f"results/03_mapping/{MAP_TAG}/{{t_id}}/{{t_id}}.passing_alignments.parquet",
-        map_stats = f"results/03_mapping/{MAP_TAG}/{{t_id}}/{{t_id}}.mapping_stats.tsv",
+        bins_tsv = f"results/02_classifiable_regions/{BIN_TAG}/{{t_id}}/{{t_id}}.bins_metadata.tsv",
+        parquet = f"results/03_mapping/{RUN_TAG}/{{t_id}}/{{t_id}}.passing_alignments.parquet",
+        map_stats = f"results/03_mapping/{RUN_TAG}/{{t_id}}/{{t_id}}.mapping_stats.tsv",
         weekly_long = "results/01_inputs/raw_weekly_counts/raw_weekly_counts_long.tsv"
     output:
-        bin_reg_tsv = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.bin_regression_data.tsv",
-        traj_tsv = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.pruning_trajectory.tsv",
-        weekly_tsv = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.weekly_timeseries_516w.tsv",
-        metrics_json = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.validation_metrics.json"
+        bin_reg_tsv = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.bin_regression_data.tsv",
+        traj_tsv = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.pruning_trajectory.tsv",
+        weekly_tsv = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.weekly_timeseries_516w.tsv",
+        metrics_json = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.validation_metrics.json"
     params:
         script = str(SCRIPTS_DIR / "validate_and_regress.py"),
         species_name = lambda wc: get_active_species_map(wc)[str(wc.t_id)]["scientific_name"],
@@ -31,9 +31,9 @@ rule validate_and_regress_species:
         target_r = config.get("target_r", 0.90),
         min_ret_cr_frac = config.get("min_retained_cr_frac", 0.50)
     log:
-        f"logs/06_regress_and_report/{MAP_TAG}/validate_and_regress_{{t_id}}_{{species_slug}}.log"
+        f"logs/06_regress_and_report/{RUN_TAG}/validate_and_regress_{{t_id}}_{{species_slug}}.log"
     benchmark:
-        f"benchmarks/06_regress_and_report/{MAP_TAG}/validate_and_regress_{{t_id}}_{{species_slug}}.tsv"
+        f"benchmarks/06_regress_and_report/{RUN_TAG}/validate_and_regress_{{t_id}}_{{species_slug}}.tsv"
     conda:
         str(ENVS_DIR / "core_polars_joltax.yaml")
     threads: get_threads("validate_and_regress", 1)
@@ -74,21 +74,21 @@ rule generate_species_diagnostic_figure:
       - Panel D: 1-to-1 Weekly Scatter Plot (Raw Kraken Clade Reads vs. Validated Clean-Bin Reads).
     """
     input:
-        bin_reg_tsv = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.bin_regression_data.tsv",
-        traj_tsv = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.pruning_trajectory.tsv",
-        weekly_tsv = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.weekly_timeseries_516w.tsv",
-        metrics_json = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.validation_metrics.json"
+        bin_reg_tsv = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.bin_regression_data.tsv",
+        traj_tsv = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.pruning_trajectory.tsv",
+        weekly_tsv = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.weekly_timeseries_516w.tsv",
+        metrics_json = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.validation_metrics.json"
     output:
-        png_4panel = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.diagnostic_4panel.png",
-        pdf_4panel = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.diagnostic_4panel.pdf"
+        png_4panel = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.diagnostic_4panel.png",
+        pdf_4panel = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.diagnostic_4panel.pdf"
     params:
         script = str(SCRIPTS_DIR / "generate_species_plots.py"),
         target_r = config.get("target_r", 0.90),
         min_ret_cr_frac = config.get("min_retained_cr_frac", 0.50)
     log:
-        f"logs/06_regress_and_report/{MAP_TAG}/plot_species_4panel_{{t_id}}_{{species_slug}}.log"
+        f"logs/06_regress_and_report/{RUN_TAG}/plot_species_4panel_{{t_id}}_{{species_slug}}.log"
     benchmark:
-        f"benchmarks/06_regress_and_report/{MAP_TAG}/plot_species_4panel_{{t_id}}_{{species_slug}}.tsv"
+        f"benchmarks/06_regress_and_report/{RUN_TAG}/plot_species_4panel_{{t_id}}_{{species_slug}}.tsv"
     conda:
         str(ENVS_DIR / "core_polars_joltax.yaml")
     threads: get_threads("plot_species", 1)
@@ -127,33 +127,34 @@ rule generate_species_10panel_figure:
       - Panel G: Bin Temporal Occupancy (% of 516 weeks occupied vs. Cosine Similarity + N_eff)
       - Panel H: 10-Year Longitudinal eDNA Time Series (2013-2022, 516 weeks)
       - Panel I: 10-Year Seasonal Phenology Profile (Weeks 1-52, 3-week circular moving average)
-      - Panel J: Bin x Week Hierarchical Clustermap (100 CR bins x active weeks, Ward linkage + 3 strips)
+      - Panel J: Bin x Week Hierarchical Clustermap (CR bins x active weeks, Ward linkage + 3 strips)
     """
     input:
-        cr_fasta = "results/02_classifiable_regions/{t_id}/{t_id}.cr_contigs.fa",
-        parquet = f"results/03_mapping/{MAP_TAG}/{{t_id}}/{{t_id}}.passing_alignments.parquet",
-        map_stats = f"results/03_mapping/{MAP_TAG}/{{t_id}}/{{t_id}}.mapping_stats.tsv",
-        id_hist_tsv = f"results/03_mapping/{MAP_TAG}/{{t_id}}/{{t_id}}.identity_histogram_lt99.tsv",
-        bin_reg_tsv = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.bin_regression_data.tsv",
-        traj_tsv = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.pruning_trajectory.tsv",
-        weekly_tsv = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.weekly_timeseries_516w.tsv",
-        metrics_json = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.validation_metrics.json"
+        cr_fasta = f"results/02_classifiable_regions/{BIN_TAG}/{{t_id}}/{{t_id}}.cr_contigs.fa",
+        parquet = f"results/03_mapping/{RUN_TAG}/{{t_id}}/{{t_id}}.passing_alignments.parquet",
+        map_stats = f"results/03_mapping/{RUN_TAG}/{{t_id}}/{{t_id}}.mapping_stats.tsv",
+        id_hist_tsv = f"results/03_mapping/{RUN_TAG}/{{t_id}}/{{t_id}}.identity_histogram_lt99.tsv",
+        bin_reg_tsv = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.bin_regression_data.tsv",
+        traj_tsv = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.pruning_trajectory.tsv",
+        weekly_tsv = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.weekly_timeseries_516w.tsv",
+        metrics_json = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.validation_metrics.json"
     output:
-        png_10panel = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.diagnostic_10panel.png",
-        pdf_10panel = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.diagnostic_10panel.pdf",
-        enhanced_tsv = f"results/04_validation/{MAP_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.enhanced_bin_metrics.tsv"
+        png_10panel = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.diagnostic_10panel.png",
+        pdf_10panel = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.diagnostic_10panel.pdf",
+        enhanced_tsv = f"results/04_validation/{RUN_TAG}/{{t_id}}_{{species_slug}}/{{t_id}}.enhanced_bin_metrics.tsv"
     params:
         script = str(SCRIPTS_DIR / "generate_enhanced_species_dashboard.py"),
-        map_tag = MAP_TAG,
+        bin_tag = BIN_TAG,
+        map_tag = RUN_TAG,
         min_mapq = config.get("min_mapq", 30),
         min_align_frac = config.get("min_align_frac", 0.80),
         max_mismatch_frac = config.get("max_mismatch_frac", 0.01),
         target_r = config.get("target_r", 0.90),
         min_ret_cr_frac = config.get("min_retained_cr_frac", 0.50)
     log:
-        f"logs/06_regress_and_report/{MAP_TAG}/plot_species_10panel_{{t_id}}_{{species_slug}}.log"
+        f"logs/06_regress_and_report/{RUN_TAG}/plot_species_10panel_{{t_id}}_{{species_slug}}.log"
     benchmark:
-        f"benchmarks/06_regress_and_report/{MAP_TAG}/plot_species_10panel_{{t_id}}_{{species_slug}}.tsv"
+        f"benchmarks/06_regress_and_report/{RUN_TAG}/plot_species_10panel_{{t_id}}_{{species_slug}}.tsv"
     conda:
         str(ENVS_DIR / "core_polars_joltax.yaml")
     threads: get_threads("plot_species_10panel", 1)
@@ -167,6 +168,7 @@ rule generate_species_10panel_figure:
         python {params.script} \
             --taxid {wildcards.t_id} \
             --species-slug "{wildcards.species_slug}" \
+            --bin-tag "{params.bin_tag}" \
             --map-tag "{params.map_tag}" \
             --min-mapq {params.min_mapq} \
             --min-align-frac {params.min_align_frac} \
@@ -182,7 +184,7 @@ rule generate_species_10panel_figure:
 def get_all_active_metrics_jsons(wildcards):
     records = get_active_species_records(wildcards)
     return [
-        f"results/04_validation/{MAP_TAG}/{r['t_id']}_{r['species_slug']}/{r['t_id']}.validation_metrics.json"
+        f"results/04_validation/{RUN_TAG}/{r['t_id']}_{r['species_slug']}/{r['t_id']}.validation_metrics.json"
         for r in records
     ]
 
@@ -190,7 +192,7 @@ def get_all_active_metrics_jsons(wildcards):
 def get_all_active_4panel_pngs(wildcards):
     records = get_active_species_records(wildcards)
     return [
-        f"results/04_validation/{MAP_TAG}/{r['t_id']}_{r['species_slug']}/{r['t_id']}.diagnostic_4panel.png"
+        f"results/04_validation/{RUN_TAG}/{r['t_id']}_{r['species_slug']}/{r['t_id']}.diagnostic_4panel.png"
         for r in records
     ]
 
@@ -198,7 +200,7 @@ def get_all_active_4panel_pngs(wildcards):
 def get_all_active_4panel_pdfs(wildcards):
     records = get_active_species_records(wildcards)
     return [
-        f"results/04_validation/{MAP_TAG}/{r['t_id']}_{r['species_slug']}/{r['t_id']}.diagnostic_4panel.pdf"
+        f"results/04_validation/{RUN_TAG}/{r['t_id']}_{r['species_slug']}/{r['t_id']}.diagnostic_4panel.pdf"
         for r in records
     ]
 
@@ -206,7 +208,7 @@ def get_all_active_4panel_pdfs(wildcards):
 def get_all_active_10panel_pngs(wildcards):
     records = get_active_species_records(wildcards)
     return [
-        f"results/04_validation/{MAP_TAG}/{r['t_id']}_{r['species_slug']}/{r['t_id']}.diagnostic_10panel.png"
+        f"results/04_validation/{RUN_TAG}/{r['t_id']}_{r['species_slug']}/{r['t_id']}.diagnostic_10panel.png"
         for r in records
     ]
 
@@ -214,7 +216,7 @@ def get_all_active_10panel_pngs(wildcards):
 def get_all_active_10panel_pdfs(wildcards):
     records = get_active_species_records(wildcards)
     return [
-        f"results/04_validation/{MAP_TAG}/{r['t_id']}_{r['species_slug']}/{r['t_id']}.diagnostic_10panel.pdf"
+        f"results/04_validation/{RUN_TAG}/{r['t_id']}_{r['species_slug']}/{r['t_id']}.diagnostic_10panel.pdf"
         for r in records
     ]
 
@@ -224,8 +226,8 @@ rule generate_master_validation_report:
     WHY:
     Aggregates lifecycle metrics across EVERY target species in `config/targets.tsv` into
     machine-readable Polars TSV/Parquet tables and BOTH self-contained interactive HTML dashboards:
-      1. `validation_report_4panel_{MAP_TAG}.html` (and `validation_report_{MAP_TAG}.html`): embeds the 4-panel figures.
-      2. `validation_report_10panel_{MAP_TAG}.html`: embeds the 10-panel diagnostic figures.
+      1. `validation_report_4panel_{RUN_TAG}.html` (and `validation_report_{RUN_TAG}.html`): embeds the 4-panel figures.
+      2. `validation_report_10panel_{RUN_TAG}.html`: embeds the 10-panel diagnostic figures.
     """
     input:
         wf_info = "results/00_ledger/workflow_run_info.json",
@@ -240,26 +242,26 @@ rule generate_master_validation_report:
         diagnostic_10panel_pngs = get_all_active_10panel_pngs,
         diagnostic_10panel_pdfs = get_all_active_10panel_pdfs
     output:
-        master_tsv = f"results/05_reports/{MAP_TAG}/validation_master_summary_{MAP_TAG}.tsv",
-        master_parquet = f"results/05_reports/{MAP_TAG}/validation_master_summary_{MAP_TAG}.parquet",
-        timeseries_parquet = f"results/05_reports/{MAP_TAG}/validated_timeseries_long_{MAP_TAG}.parquet",
-        html_report = f"results/05_reports/{MAP_TAG}/validation_report_{MAP_TAG}.html",
-        html_report_4panel = f"results/05_reports/{MAP_TAG}/validation_report_4panel_{MAP_TAG}.html",
-        html_report_10panel = f"results/05_reports/{MAP_TAG}/validation_report_10panel_{MAP_TAG}.html"
+        master_tsv = f"results/05_reports/{RUN_TAG}/validation_master_summary_{RUN_TAG}.tsv",
+        master_parquet = f"results/05_reports/{RUN_TAG}/validation_master_summary_{RUN_TAG}.parquet",
+        timeseries_parquet = f"results/05_reports/{RUN_TAG}/validated_timeseries_long_{RUN_TAG}.parquet",
+        html_report = f"results/05_reports/{RUN_TAG}/validation_report_{RUN_TAG}.html",
+        html_report_4panel = f"results/05_reports/{RUN_TAG}/validation_report_4panel_{RUN_TAG}.html",
+        html_report_10panel = f"results/05_reports/{RUN_TAG}/validation_report_10panel_{RUN_TAG}.html"
     params:
         script = str(SCRIPTS_DIR / "generate_master_report.py"),
         template = str(SCRIPTS_DIR / "templates" / "validation_report.html.j2"),
-        validation_dir = f"results/04_validation/{MAP_TAG}",
+        validation_dir = f"results/04_validation/{RUN_TAG}",
         benchmarks_dir = "benchmarks",
         config_path = "config/config.yaml",
-        map_tag = MAP_TAG,
+        map_tag = RUN_TAG,
         min_mapq = config.get("min_mapq", 30),
         min_align_frac = config.get("min_align_frac", 0.80),
         max_mismatch_frac = config.get("max_mismatch_frac", 0.01)
     log:
-        f"logs/06_regress_and_report/{MAP_TAG}/generate_master_validation_report.log"
+        f"logs/06_regress_and_report/{RUN_TAG}/generate_master_validation_report.log"
     benchmark:
-        f"benchmarks/06_regress_and_report/{MAP_TAG}/generate_master_validation_report.tsv"
+        f"benchmarks/06_regress_and_report/{RUN_TAG}/generate_master_validation_report.tsv"
     conda:
         str(ENVS_DIR / "core_polars_joltax.yaml")
     threads: get_threads("master_report", 1)

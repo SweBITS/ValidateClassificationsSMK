@@ -74,9 +74,18 @@ coverage_tier: "2x"            # Active tier for downstream binning & mapping: "
 # fragmented drafts (thousands of noisy points). Linearly increasing bin capacities
 # (0.3*L_bar to 1.7*L_bar) along contigs sorted shortest-to-longest guarantees a 5.7x
 # horizontal spread on the X-axis with zero random numbers.
+# Note: bin_min_scale and bin_max_scale are multipliers of the mean bin length (L_CR / n_bins),
+# so you do NOT need to adjust them when changing n_bins.
+#
+# Output Namespacing by Binning Parameters:
+# Stage 3 outputs are namespaced under `results/02_classifiable_regions/<BIN_TAG>/{t_id}/`
+# where `BIN_TAG = bins{n_bins}_s{min_scale}-{max_scale}` (e.g., `bins100_s0p3-1p7`), and
+# Stages 4–5 combine `<BIN_TAG>_<MAP_TAG>` (`RUN_TAG`), so changing `n_bins` never overwrites
+# previous runs.
 n_bins: 100
 bin_min_scale: 0.3
 bin_max_scale: 1.7
+bin_tag_override: ""           # Optional custom Stage 3 bin tag override (leave "" for automatic `bins{N}_s{min}-{max}`)
 
 # --- 6. Stage 4: Minimap2 CR Alignment & Proportional SAM Filtering --- #
 # Why proportional filtering instead of fixed base counts:
@@ -90,9 +99,9 @@ bin_max_scale: 1.7
 # filenames using `mapq{min_mapq}_aln{min_align_pct}_id{min_identity_pct}` (e.g., `mapq30_aln80_id99`
 # under `results/{03_mapping,04_validation,05_reports}/<tag>/`), so running with different mapping
 # thresholds (here or via `--config`) never overwrites previous runs.
-min_mapq: 30
+min_mapq: 20
 min_align_frac: 0.80
-max_mismatch_frac: 0.01
+max_mismatch_frac: 0.05
 mapping_tag_override: ""       # Optional custom folder/file tag override (leave "" for automatic `mapq{Q}_aln{A}_id{I}`)
 
 # --- 7. Stage 5: Recursive Outlier Regression & Validation Criteria --- #
