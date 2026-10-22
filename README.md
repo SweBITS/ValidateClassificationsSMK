@@ -75,7 +75,7 @@ t_id	t_species	override_accession
 - **Duplicate `t_id` Handling**: If the same `t_id` is listed more than once in `config/targets.tsv`, Stage 0 keeps the first occurrence and automatically skips subsequent duplicates with a `WARNING` in the log so downstream Snakemake wildcards never collide.
 
 ### 2. Review Parameters (`config/config.yaml`)
-All thresholds (`min_total_reads: 1000`, `coverage_tier: "2x"`, `n_bins: 100`, `target_r: 0.90`, `min_retained_cr_frac: 0.50`) and cluster paths (`config/manifests/master_db_2025_manifest.tsv.gz`, `joltax_cache_dir`, `kraken2_db_path`) are pre-configured in [`config/config.yaml`](config/config.yaml).
+All thresholds (`min_total_reads: 1000`, `tile_window_bp: 400`, `tile_step_bp: 200`, `n_bins: 100`, `target_r: 0.90`, `min_retained_cr_frac: 0.50`) and cluster paths (`config/manifests/master_db_2025_manifest.tsv.gz`, `joltax_cache_dir`, `kraken2_db_path`, `kraken2_toolchain_module: "intel/2025a"`) are pre-configured in [`config/config.yaml`](config/config.yaml).
 
 ### 3. Run on Kebnekaise (SLURM)
 ```bash
