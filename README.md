@@ -85,26 +85,27 @@ snakemake -n
 # Launch on HPC2N Kebnekaise using the SLURM profile and Conda environments
 snakemake --profile slurm/hpc2n --use-conda
 
-# Or launch a run with alternative mapping parameters (reuses Stages 0–3 automatically
-# and writes Stage 4–5 outputs to results/{03_mapping,04_validation,05_reports}/mapq20_aln80_id97/):
-snakemake --profile slurm/hpc2n --use-conda --config min_mapq=20 min_align_frac=0.80 max_mismatch_frac=0.03
+# Or launch a run with alternative binning or mapping parameters (reuses Stages 0–2 automatically
+# and writes Stage 3–5 outputs to parameter-tagged subdirectories):
+snakemake --profile slurm/hpc2n --use-conda --config n_bins=50 min_mapq=20 min_align_frac=0.80 max_mismatch_frac=0.05
 ```
 
 ---
 
-## Output Directory Guide (Parameter-Namespaced Stages 4–5)
+## Output Directory Guide (Parameter-Namespaced Stages 3–5)
 
-Upstream Stages 0–3 (`results/00_ledger/`, `results/01_inputs/`, and `results/02_classifiable_regions/`) are independent of mapping parameters and are **shared across all runs**. Downstream Stages 4–5 (`03_mapping`, `04_validation`, `05_reports`, and their `logs/` and `benchmarks/` folders) are automatically namespaced by the active mapping parameter tag **`{map_tag}` = `mapq{min_mapq}_aln{min_align_pct}_id{min_identity_pct}`** (default: **`mapq30_aln80_id99`**), so running new mapping thresholds never overwrites previous results:
+Upstream Stages 0–2 (`results/00_ledger/`, `results/01_inputs/`, and unbinned BED files in `results/02_classifiable_regions/{t_id}/`) are shared across all runs. Stage 3 is namespaced by **`{bin_tag}` = `bins{n_bins}_s{min_scale}-{max_scale}`** (default: **`bins100_s0p3-1p7`**), and Stages 4–5 (`03_mapping`, `04_validation`, `05_reports`, plus `logs/` and `benchmarks/`) are namespaced by **`{run_tag}` = `{bin_tag}_{map_tag}`** (e.g., **`bins100_s0p3-1p7_mapq30_aln80_id99`**), so running new binning or mapping thresholds never overwrites previous results:
 
 | Path | Description |
 | :--- | :--- |
-| `results/05_reports/{map_tag}/validation_report_10panel_{map_tag}.html` | **10-Panel Widescreen Self-Contained HTML Dashboard** embedding the 10-panel diagnostic suite (`{t_id}.diagnostic_10panel.png`) for every active species alongside executive KPIs, filterable ledger tables, and SLURM benchmarks. |
-| `results/05_reports/{map_tag}/validation_report_4panel_{map_tag}.html` | **4-Panel (2×2) Self-Contained HTML Dashboard** (also written to `validation_report_{map_tag}.html`) embedding the classic 4-panel `2×2` diagnostic plots (`{t_id}.diagnostic_4panel.png`). |
-| `results/05_reports/{map_tag}/validation_master_summary_{map_tag}.tsv` | **Master Lifecycle Table** (also saved as `.parquet`) with all Stage 0–5 metrics and final `validation_status` for every target taxon. |
-| `results/05_reports/{map_tag}/validated_timeseries_long_{map_tag}.parquet` | **Unified 516-Week Time Series** (`raw_kraken_reads`, `all_cr_mapped_reads`, `validated_clean_bin_reads`) across all target taxa. |
-| `results/04_validation/{map_tag}/{t_id}_{Species_name}/` | **Per-Species Results Folder** containing `{t_id}.diagnostic_10panel.{png,pdf}`, `{t_id}.diagnostic_4panel.{png,pdf}`, `{t_id}.bin_regression_data.tsv`, `{t_id}.enhanced_bin_metrics.tsv`, `{t_id}.pruning_trajectory.tsv`, and `{t_id}.weekly_timeseries_516w.tsv`. |
-| `results/03_mapping/{map_tag}/{t_id}/` | **Alignment Parquet & Identity Audit** containing `{t_id}.passing_alignments.parquet`, `{t_id}.mapping_stats.tsv`, and `{t_id}.identity_histogram_lt99.tsv` (exact 516-week `<90%` through `100%` 1%-bin read-pair counts). |
-| `results/00_ledger/assembly_filtering_summary.tsv` | **Stage 1 Contig Filtering Audit Table** (shared across mapping runs) recording raw vs. kept contigs and base pairs ($\ge 1,000\text{ bp}$). |
+| `results/05_reports/{run_tag}/validation_report_10panel_{run_tag}.html` | **10-Panel Widescreen Self-Contained HTML Dashboard** embedding the 10-panel diagnostic suite (`{t_id}.diagnostic_10panel.png`) for every active species alongside executive KPIs, filterable ledger tables, and SLURM benchmarks. |
+| `results/05_reports/{run_tag}/validation_report_4panel_{run_tag}.html` | **4-Panel (2×2) Self-Contained HTML Dashboard** (also written to `validation_report_{run_tag}.html`) embedding the classic 4-panel `2×2` diagnostic plots (`{t_id}.diagnostic_4panel.png`). |
+| `results/05_reports/{run_tag}/validation_master_summary_{run_tag}.tsv` | **Master Lifecycle Table** (also saved as `.parquet`) with all Stage 0–5 metrics and final `validation_status` for every target taxon. |
+| `results/05_reports/{run_tag}/validated_timeseries_long_{run_tag}.parquet` | **Unified 516-Week Time Series** (`raw_kraken_reads`, `all_cr_mapped_reads`, `validated_clean_bin_reads`) across all target taxa. |
+| `results/04_validation/{run_tag}/{t_id}_{Species_name}/` | **Per-Species Results Folder** containing `{t_id}.diagnostic_10panel.{png,pdf}`, `{t_id}.diagnostic_4panel.{png,pdf}`, `{t_id}.bin_regression_data.tsv`, `{t_id}.enhanced_bin_metrics.tsv`, `{t_id}.pruning_trajectory.tsv`, and `{t_id}.weekly_timeseries_516w.tsv`. |
+| `results/03_mapping/{run_tag}/{t_id}/` | **Alignment Parquet & Identity Audit** containing `{t_id}.passing_alignments.parquet`, `{t_id}.mapping_stats.tsv`, and `{t_id}.identity_histogram_lt99.tsv` (exact 516-week `<90%` through `100%` 1%-bin read-pair counts). |
+| `results/02_classifiable_regions/{bin_tag}/{t_id}/` | **Binned Classifiable Region Reference & Metadata** containing `{t_id}.cr_contigs.fa` and `{t_id}.bins_metadata.tsv`. |
+| `results/00_ledger/assembly_filtering_summary.tsv` | **Stage 1 Contig Filtering Audit Table** (shared across runs) recording raw vs. kept contigs and base pairs ($\ge 1,000\text{ bp}$). |
 
 ---
 
@@ -154,8 +155,12 @@ The widescreen figure (`32.0 × 18.2 in`, 300 DPI) uses a unified `3 × 4` colum
 
 ## Technical Documentation & In-Depth Analyses
 
-- [`DASHBOARD_README.md`](DASHBOARD_README.md): **Diagnostic Dashboard Guide (Plain-English & Technical/Mathematical Reference)**.
-  Comprehensive guide to every panel (`A` through `J`) and validation status code, with both non-specialist plain-English explanations and full mathematical definitions, cutoffs, and rationale.
+- [`PIPELINE_OVERVIEW.md`](PIPELINE_OVERVIEW.md): **Pipeline Overview & Methodology Guide (Plain-English + Technical Walkthrough)**.
+  A colleague-friendly overview of what the pipeline does, why each of the 6 stages (`Stage 0`–`Stage 5`) is needed, and how the parameters work under the hood.
+- [`DASHBOARD_README.md`](DASHBOARD_README.md): **10-Panel Diagnostic Figure — Reader's Guide**.
+  A page-by-page guide to every panel (`A` through `J`) and validation status code, with a clickable panel index, plain-English explanations, and concise technical notes.
+- [`PIPELINE_VIDEO_PROMPT.md`](PIPELINE_VIDEO_PROMPT.md): **Instructional Video Storyboard & AI Prompt Pack**.
+  10-scene schematic storyboard, voiceover script, and copy-paste prompts for generating an animated explainer video of the pipeline.
 - [`docs/NCBI_ASSEMBLY_SUPPRESSION_ANALYSIS.md`](docs/NCBI_ASSEMBLY_SUPPRESSION_ANALYSIS.md): **Empirical Analysis of NCBI Assembly Suppressions & Grand-Scale Workarounds**.
   An empirical audit of all 107,575 GenBank and RefSeq assemblies in `input/database_manifest.tsv`, explaining why re-annotation and submitter requests cause suppressions, evaluating underlying GenBank availability, and outlining automated workarounds (such as `GCF_` $\rightarrow$ `GCA_` fallback and handling DToL v2 chromosome updates) for future grand-scale executions.
 
