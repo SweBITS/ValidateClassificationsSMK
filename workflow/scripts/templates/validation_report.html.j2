@@ -567,7 +567,7 @@
       <div><strong>Run Profile:</strong> <code>{{ map_tag | default(config.get('map_tag', 'bins100_s0p3-1p7_mapq30_aln80_id99')) }}</code></div>
       <div><strong>Binning:</strong> {{ config.get('n_bins', 100) }} linear bins ({{ config.get('bin_min_scale', 0.3) }}&times;&ndash;{{ config.get('bin_max_scale', 1.7) }}&times; mean CR)</div>
       <div><strong>Mapping Cutoffs:</strong> MAPQ &ge; {{ config.get('min_mapq', 30) }}, Aligned &ge; {{ (config.get('min_align_frac', 0.80) * 100)|round(1) }}%, Identity &ge; {{ ((1.0 - config.get('max_mismatch_frac', 0.01)) * 100)|round(1) }}%</div>
-      <div><strong>Active Coverage Tier:</strong> {{ config.get('coverage_tier', '2x') }} ({{ config.get('tile_window_bp', 400) }} bp window)</div>
+      <div><strong>In Silico Tiling:</strong> {{ config.get('tile_window_bp', 400) }} bp window, {{ config.get('tile_step_bp', 200) }} bp step (2&times; coverage)</div>
       <div><strong>Kraken 2 Thresholds:</strong> conf={{ config.get('kraken2_confidence', 0.1) }}, MHG={{ config.get('kraken2_minimum_hit_groups', 10) }}</div>
       <div><strong>Validation Cutoffs:</strong> R &ge; {{ config.get('target_r', 0.90) }}, Occupancy &ge; {{ (config.get('min_occupied_bins_frac', 0.50) * 100)|int }}%, Retained CR &ge; {{ (config.get('min_retained_cr_frac', 0.50) * 100)|int }}%</div>
       <div><strong>Git Branch / Commit:</strong> {{ wf_info.get('git_branch', 'N/A') }} ({{ wf_info.get('git_commit', 'N/A') }})</div>

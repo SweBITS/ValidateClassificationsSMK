@@ -20,9 +20,9 @@ Conversely, false-positive detections (caused by cross-mapping to conserved rRNA
 2. **Stage 1 — Upfront Contig Filtering ($\ge 1,000\text{ bp}$) & Quality Audit**:
    - Removes short contigs ($< 1,000\text{ bp}$) and audits sequence retention in `results/00_ledger/assembly_filtering_summary.tsv`.
    - Excludes assemblies leaving $< 100\text{ kb}$ (`EXCLUDED_INSUFFICIENT_CONTIG_LENGTH`) or losing $> 50\%$ of base pairs (`EXCLUDED_FILTERED_ASSEMBLY_PROPORTION`).
-3. **Stage 2 — Zero-Disk `400 bp` Streaming Tiling & Single-Pass Kraken 2 CR Discovery**:
-   - Slices all active filtered references into `400 bp` windows stepped every `100 bp` ($4\times$ coverage) and streams them through a POSIX FIFO into Kraken 2 once.
-   - Because even-numbered windows (`idx % 2 == 0`) form the exact `200 bp` step ($2\times$ coverage) dataset, a single Kraken 2 pass simultaneously builds both **$2\times$ CRs** ($\pm 200\text{ bp}$ step-padded) and **$4\times$ CRs** ($\pm 100\text{ bp}$ step-padded), clamped to contig ends and merged with zero base-pair overlap.
+3. **Stage 2 — Zero-Disk `400 bp` / `200 bp`-Step ($2\times$) Streaming Tiling & Single-Pass Kraken 2 CR Discovery**:
+   - Slices all active filtered references into `400 bp` windows stepped every `200 bp` ($2\times$ coverage) using a multi-worker producer (`stream_tiled_fasta.py`) and streams them through a POSIX FIFO into Kraken 2 (`36` OpenMP threads across 2 NUMA sockets, with `intel/2025a` loaded) once.
+   - Clade-classified windows are padded by the `200 bp` step size ($\pm 200\text{ bp}$), clamped to contig ends, and merged into disjoint Classifiable Regions (`{taxid}.cr_2x.bed`) with zero base-pair overlap.
 4. **Stage 3 — Shortest-to-Longest Contig Sorting & Linear Variable-Size Binning (`100 Bins`)**:
    - Sorts contigs containing CRs from shortest to longest and partitions total CR sequence ($L_{\text{CR}}$) into **100 sequential bins** with linearly increasing capacities from $0.3\bar{L}$ to $1.7\bar{L}$, outputting `{taxid}.cr_contigs.fa`.
 5. **Stage 4 — Sample-Aware eDNA Read Extraction & CR-Exclusive Alignment**:

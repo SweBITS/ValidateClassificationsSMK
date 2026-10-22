@@ -47,8 +47,7 @@ rule build_cr_bins:
     params:
         script = str(SCRIPTS_DIR / "build_cr_bins.py"),
         filtered_fasta = get_species_filtered_fasta,
-        tier = config.get("coverage_tier", "2x"),
-        cr_bed = lambda wc: f"results/02_classifiable_regions/{wc.t_id}/{wc.t_id}.cr_{config.get('coverage_tier', '2x')}.bed",
+        cr_bed = lambda wc: f"results/02_classifiable_regions/{wc.t_id}/{wc.t_id}.cr_2x.bed",
         n_bins = config.get("n_bins", 100),
         min_scale = config.get("bin_min_scale", 0.3),
         max_scale = config.get("bin_max_scale", 1.7)

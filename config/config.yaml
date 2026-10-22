@@ -27,6 +27,7 @@ local_assemblies_dir: "input/local_assemblies"
 # (CRs) reflect the identical minimizer decision boundaries experienced by real eDNA reads.
 kraken2_db_path: "/proj/nobackup/snic2019-35-73/data/03-DATABASES/02-MASTER_DB_2025/db"
 kraken2_bin_dir: "/pfs/proj/nobackup/fs/projnb10/snic2019-35-73/bin/kraken2_SweBiTS_MHG_intel"
+kraken2_toolchain_module: "intel/2025a"
 kraken2_confidence: 0.1
 kraken2_minimum_hit_groups: 10
 
@@ -59,13 +60,13 @@ max_discarded_bp_pct: 50.0     # Exclude as EXCLUDED_FILTERED_ASSEMBLY_PROPORTIO
 max_discarded_contig_pct: 100.0 # Recorded in audit table; 100.0 = do not exclude on contig count % by default
 
 # --- 4. Stage 2: In Silico Tiling & Flanked CR Construction --- #
-# Why 400 bp window with 100 bp step (4x coverage):
-# Slicing at 100 bp step produces a 4x tiling stream where even-indexed windows
-# (idx % 2 == 0) form the exact 200 bp step (2x coverage) dataset. Thus Kraken 2
-# classifies the 2.6 TB database only ONCE, and our consumer builds both 2x and 4x CRs.
+# Why 400 bp window with 200 bp step (2x coverage):
+# Slicing each contig into 400 bp windows stepped every 200 bp covers every genomic locus
+# twice while generating half as many simulated reads as a 100 bp step. Each clade-classified
+# window [s, e) is then padded by +/- 200 bp (the step size) and clamped to [0, contig_len]
+# before interval merging so real eDNA reads overlapping CR boundaries are not soft-clipped.
 tile_window_bp: 400
-tile_step_4x_bp: 100
-coverage_tier: "2x"            # Active tier for downstream binning & mapping: "2x" (pad +/-200bp) or "4x" (pad +/-100bp)
+tile_step_bp: 200
 
 # --- 5. Stage 3: Variable-Size Linear Binning --- #
 # Why 100 bins scaled linearly from 0.3x to 1.7x mean CR length:
@@ -138,9 +139,11 @@ resources:
     mem_mb: 1000               # Pure RFC 1952 cat; Max RSS = 44 MB, Max time = 48.9s
     runtime_min: 10
   stream_kraken_cr:            # Single-pass FIFO rule on cpu_largemem (retries: 0)
-    threads: 72
+    threads: 72                # Full 72-core (4-socket x 18-core) largemem node reservation
+    kraken_threads: 36         # Optimal Kraken 2 OpenMP thread count (2 sockets); avoids 4-socket NUMA & critical-section lock contention
+    tiler_workers: 8           # Parallel Python producer processes feeding the FIFO ahead of Kraken 2's 3 MB LoadBlock()
     mem_mb: 2800000
-    runtime_min: 1800          # Scaled for 44 species (~24.3 Gbp / ~243M windows; projected ~16h + headroom)
+    runtime_min: 360           # With 200bp step (2x) + 36 Kraken threads + 8-worker fast tiler, 44 species complete in ~30-60m
     constraint: "largemem"
   build_cr_bins:
     threads: 1
