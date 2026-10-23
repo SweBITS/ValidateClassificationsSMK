@@ -161,6 +161,8 @@ The widescreen figure (`32.0 × 18.2 in`, 300 DPI) uses a unified `3 × 4` colum
   A page-by-page guide to every panel (`A` through `J`) and validation status code, with a clickable panel index, plain-English explanations, and concise technical notes.
 - [`PIPELINE_VIDEO_PROMPT.md`](PIPELINE_VIDEO_PROMPT.md): **Instructional Video Storyboard & AI Prompt Pack**.
   10-scene schematic storyboard, voiceover script, and copy-paste prompts for generating an animated explainer video of the pipeline.
+- [`STAGE2_BENCHMARK_AND_CR_COMPARISON_PLAN.md`](STAGE2_BENCHMARK_AND_CR_COMPARISON_PLAN.md): **Stage 2 Optimization, Kraken 2 Core-Scaling Benchmark (`6–72` Cores) & CR Concordance Report**.
+  Documents the `5.84×` Stage 2 classification speedup (`200 bp` step + `stream_tiled_fasta.py` + `36` threads), the controlled 44-species Kraken 2 thread-scaling curve (`6, 12, 18, 24, 36, 72` cores on Kebnekaise `largemem`), and the `99.9898%` base-pair Jaccard identity of `{t_id}.cr_2x.bed`.
 - [`docs/NCBI_ASSEMBLY_SUPPRESSION_ANALYSIS.md`](docs/NCBI_ASSEMBLY_SUPPRESSION_ANALYSIS.md): **Empirical Analysis of NCBI Assembly Suppressions & Grand-Scale Workarounds**.
   An empirical audit of all 107,575 GenBank and RefSeq assemblies in `input/database_manifest.tsv`, explaining why re-annotation and submitter requests cause suppressions, evaluating underlying GenBank availability, and outlining automated workarounds (such as `GCF_` $\rightarrow$ `GCA_` fallback and handling DToL v2 chromosome updates) for future grand-scale executions.
 

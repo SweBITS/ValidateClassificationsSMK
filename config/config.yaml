@@ -83,7 +83,7 @@ tile_step_bp: 200
 # where `BIN_TAG = bins{n_bins}_s{min_scale}-{max_scale}` (e.g., `bins100_s0p3-1p7`), and
 # Stages 4–5 combine `<BIN_TAG>_<MAP_TAG>` (`RUN_TAG`), so changing `n_bins` never overwrites
 # previous runs.
-n_bins: 100
+n_bins: 50
 bin_min_scale: 0.3
 bin_max_scale: 1.7
 bin_tag_override: ""           # Optional custom Stage 3 bin tag override (leave "" for automatic `bins{N}_s{min}-{max}`)
@@ -140,12 +140,10 @@ resources:
     runtime_min: 10
   stream_kraken_cr:            # Single-pass FIFO rule on cpu_largemem (retries: 0)
     threads: 72                # Full 72-core (4-socket x 18-core) largemem node reservation
-    kraken_threads: 36         # Optimal Kraken 2 OpenMP thread count (2 sockets); avoids 4-socket NUMA & critical-section lock contention
+    kraken_threads: 36         # Optimal Kraken 2 OpenMP thread count (2 sockets; 92.2% CPU efficiency vs 62.3% at 72c)
     tiler_workers: 8           # Parallel Python producer processes feeding the FIFO ahead of Kraken 2's 3 MB LoadBlock()
-    benchmark_threads_list: "6,12,18,24,36,72"  # In-job warm-cache thread scaling sweep (set to "" to disable)
-    benchmark_windows: 5000000 # 5M 400bp windows (2.0 Gbp) per thread-scaling trial
     mem_mb: 2800000
-    runtime_min: 360           # With 200bp step (2x) + 36 Kraken threads + 8-worker fast tiler, 44 species complete in ~30-60m
+    runtime_min: 360           # 44 species complete in ~2h 53m (63m Lustre DB load + 105m classification)
     constraint: "largemem"
   build_cr_bins:
     threads: 1

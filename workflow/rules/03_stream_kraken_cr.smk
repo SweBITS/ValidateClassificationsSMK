@@ -30,7 +30,6 @@ rule stream_kraken_cr:
     params:
         tiler_script = str(SCRIPTS_DIR / "stream_tiled_fasta.py"),
         consumer_script = str(SCRIPTS_DIR / "consume_kraken_stream_to_cr.py"),
-        bench_script = str(SCRIPTS_DIR / "benchmark_kraken_threads.py"),
         kraken2_bin = (
             str(Path(config["kraken2_bin_dir"]) / "kraken2")
             if config.get("kraken2_bin_dir")
@@ -45,10 +44,6 @@ rule stream_kraken_cr:
         pad_bp = config.get("tile_step_bp", 200),
         kraken_threads = int(RES_CFG.get("stream_kraken_cr", {}).get("kraken_threads", 36)),
         tiler_workers = int(RES_CFG.get("stream_kraken_cr", {}).get("tiler_workers", 8)),
-        bench_threads_list = str(RES_CFG.get("stream_kraken_cr", {}).get("benchmark_threads_list", "6,12,18,24,36,72")),
-        bench_windows = int(RES_CFG.get("stream_kraken_cr", {}).get("benchmark_windows", 5000000)),
-        bench_out_tsv = "benchmarks/03_stream_kraken_cr/kraken2_thread_scaling.tsv",
-        bench_log = "logs/03_stream_kraken_cr/kraken2_thread_scaling.log",
         out_cr_dir = "results/02_classifiable_regions"
     log:
         kraken = "logs/03_stream_kraken_cr/kraken2_stream.log",
@@ -149,24 +144,4 @@ rule stream_kraken_cr:
             exit 1
         fi
         grep -q "^STREAM_DRAINED_AND_FSYNCED_OK$" {output.sentinel}
-
-        # Optional warm-cache Kraken 2 thread-scaling sweep (6, 12, 18, 24, 36, 72 cores)
-        if [ -n "{params.bench_threads_list}" ]; then
-            python {params.bench_script} \
-                --kraken2-bin {params.kraken2_bin} \
-                --db-path {params.db_path} \
-                --confidence {params.confidence} \
-                --mhg {params.mhg} \
-                --tiler-script {params.tiler_script} \
-                --active-species {input.active_species} \
-                --window-bp {params.window_bp} \
-                --step-bp {params.step_bp} \
-                --tiler-workers {params.tiler_workers} \
-                --threads-list "{params.bench_threads_list}" \
-                --bench-windows {params.bench_windows} \
-                --main-kraken-log {log.kraken} \
-                --main-threads {params.kraken_threads} \
-                --out-tsv {params.bench_out_tsv} \
-                --log {params.bench_log}
-        fi
         """
